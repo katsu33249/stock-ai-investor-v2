@@ -1,0 +1,60 @@
+# ========================================
+# Stock AI Investor - 設定ファイル
+# ========================================
+
+# --- 通知設定 ---
+notifications:
+  discord_webhook_url: "YOUR_DISCORD_WEBHOOK_URL"
+  notify_on_new_signal: true
+  notify_threshold_score: 70      # この点数以上の銘柄を通知
+
+# --- スクリーニング設定 ---
+screening:
+  # 最低条件フィルター
+  min_market_cap_billion: 10      # 最低時価総額（億円）
+  min_avg_volume: 50000           # 最低平均出来高
+  max_per: 50                     # 最大PER
+  min_roe: 5                      # 最低ROE（%）
+  
+  # 対象セクター（政策連動）
+  target_sectors:
+    - defense          # 防衛
+    - semiconductor    # 半導体
+    - green_energy     # GX・再エネ
+    - ai_digital       # AI・DX
+    - medical          # 医療
+    - infrastructure   # インフラ
+
+# --- スコアリング重み設定 ---
+scoring_weights:
+  policy: 0.35        # 政策スコア 35%
+  technical: 0.35     # テクニカルスコア 35%
+  fundamental: 0.30   # ファンダメンタルスコア 30%
+
+# --- テクニカル分析設定 ---
+technical:
+  rsi_period: 14
+  rsi_oversold: 30
+  rsi_overbought: 70
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  sma_short: 25
+  sma_long: 75
+
+# --- データ設定 ---
+data:
+  history_days: 180               # 取得する過去データ日数
+  update_interval_minutes: 60     # データ更新間隔
+
+# --- ポートフォリオ設定 ---
+portfolio:
+  total_budget: 1000000           # 総投資予算（円）
+  max_single_stock_ratio: 0.15    # 1銘柄の最大比率（15%）
+  rebalance_threshold: 0.05       # リバランス閾値（5%乖離で発動）
+
+# --- 出力設定 ---
+output:
+  results_dir: "data/results"
+  save_csv: true
+  top_n_stocks: 20               # 上位何銘柄を出力するか
