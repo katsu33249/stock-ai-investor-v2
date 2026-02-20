@@ -9,7 +9,7 @@ requests==2.31.0
 
 # テクニカル分析
 ta==0.10.2
-pandas-ta==0.3.14b0
+
 
 # 可視化
 matplotlib==3.8.2
