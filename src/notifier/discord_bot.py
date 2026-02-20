@@ -54,7 +54,7 @@ class DiscordNotifier:
             })
 
         # トップ銘柄（上位5件）
-        top_stocks = [r for r in results if r.get("total_score", 0) >= 70][:5]
+        top_stocks = results[:5]
 
         if top_stocks:
             fields = []
