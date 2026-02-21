@@ -1,0 +1,146 @@
+﻿ランク,ティッカー,銘柄名,総合スコア,テクニカル,ファンダメンタル,政策スコア,判定,株価,時価総額(億円),PER,PBR,政策セクター,コメント
+1,3482.T,Loadstar Capital K.K.,77.9,76,87,72,🏛️ 買い（政策恩恵）,3560.0,591.0,7.117438,1.8209141,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中 / 出来高急増 / 高ROE優良企業
+2,7047.T,Port Inc.,77.6,83,78,72,🏛️ 買い（政策恩恵）,2513.0,329.0,15.479857,3.232017,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中 / 出来高急増 / 高ROE優良企業
+3,4063.T,"Shin-Etsu Chemical Co., Ltd.",77.4,90,55,84,🏛️ 買い（政策恩恵）,5750.0,107754.0,22.271284,2.4912903,semiconductor,政策重点銘柄（semiconductor） / ゴールデンクロス形成中 / 出来高急増
+4,2986.T,"LA Holdings Co., Ltd.",76.0,69,89,72,🏛️ 買い（政策恩恵）,9780.0,741.0,9.891177,2.4938266,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中 / 高ROE優良企業
+5,5254.T,Arent Inc.,75.0,79,74,72,🏛️ 買い（政策恩恵）,4040.0,265.0,20.833334,4.1327767,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中 / 出来高急増 / バリュエーション割高注意 / 高ROE優良企業
+6,7013.T,IHI Corporation,74.1,79,50,90,🏛️ 買い（政策恩恵）,4384.0,46477.0,35.969807,8.245111,defense,政策重点銘柄（defense） / ゴールデンクロス形成中 / バリュエーション割高注意 / 高ROE優良企業
+7,7033.T,"Management Solutions co.,Ltd.",74.0,83,66,72,🏛️ 買い（政策恩恵）,1382.0,217.0,14.123659,3.6713822,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中 / 出来高急増 / 高ROE優良企業
+8,6196.T,"Strike Company,Limited",73.0,79,67,72,🏛️ 買い（政策恩恵）,4360.0,837.0,17.730785,4.4226604,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中 / 出来高急増 / バリュエーション割高注意 / 高ROE優良企業
+9,7685.T,"BuySell Technologies Co.,Ltd.",72.2,83,60,72,🏛️ 買い（政策恩恵）,6200.0,1911.0,35.714283,8.926848,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中 / 出来高急増 / バリュエーション割高注意 / 高ROE優良企業
+10,6952.T,"Casio Computer Co.,Ltd.",72.0,67,57,90,🏛️ 買い（政策恩恵）,1604.5,3659.0,45.45326,1.5807244,defense,政策重点銘柄（defense） / ゴールデンクロス形成中 / バリュエーション割高注意
+11,6857.T,Advantest Corporation,71.7,65,65,84,🏛️ 買い（政策恩恵）,25475.0,185047.0,71.42857,27.43643,semiconductor,政策重点銘柄（semiconductor） / ゴールデンクロス形成中 / バリュエーション割高注意 / 高ROE優良企業
+12,3989.T,"Sharingtechnology, Inc.",70.9,68,73,72,🏛️ 買い（政策恩恵）,1138.0,272.0,19.22947,5.9605494,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中 / 出来高急増 / バリュエーション割高注意 / 高ROE優良企業
+13,8035.T,Tokyo Electron Limited,70.2,79,44,84,🏛️ 買い（政策恩恵）,43960.0,201514.0,37.31337,10.049374,semiconductor,政策重点銘柄（semiconductor） / ゴールデンクロス形成中 / バリュエーション割高注意 / 高ROE優良企業
+14,8789.T,FinTech Global Incorporated,70.1,70,68,72,🏛️ 買い（政策恩恵）,148.0,284.0,13.665744,2.4700837,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中 / 高ROE優良企業
+15,7762.T,"Citizen Watch Co., Ltd.",70.1,58,61,90,🏛️ 買い（政策恩恵）,1727.0,4214.0,17.954048,1.5091443,defense,政策重点銘柄（defense） / ゴールデンクロス形成中
+16,8750.T,"Dai-ichi Life Holdings, Inc.",69.7,72,69,68,👀 監視・買い検討,1562.0,56615.0,14.124243,1.3896402,finance,ゴールデンクロス形成中 / 出来高急増
+17,3407.T,Asahi Kasei Corporation,69.5,73,58,76,👀 監視・買い検討,1740.0,23634.0,16.834366,1.1773726,infrastructure,政策重点銘柄（infrastructure） / ゴールデンクロス形成中
+18,5444.T,"Yamato Kogyo Co., Ltd.",69.2,85,43,76,👀 監視・買い検討,12755.0,7670.0,34.482292,1.4404802,infrastructure,政策重点銘柄（infrastructure） / ゴールデンクロス形成中 / バリュエーション割高注意
+19,9279.T,Gift Holdings Inc.,69.0,73,61,72,👀 監視・買い検討,3920.0,785.0,35.841637,7.587092,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中 / バリュエーション割高注意 / 高ROE優良企業
+20,9984.T,SoftBank Group Corp.,68.5,50,79,78,👀 監視・買い検討,4329.0,246699.0,8.090681,1.597232,ai_digital,政策重点銘柄（ai_digital） / 高ROE優良企業
+21,4523.T,"Eisai Co., Ltd.",68.4,67,52,84,👀 監視・買い検討,5114.0,14416.0,29.239567,1.6204267,semiconductor,政策重点銘柄（semiconductor） / 出来高急増
+22,8591.T,ORIX Corporation,68.3,69,68,68,👀 監視・買い検討,5410.0,59824.0,12.987013,1.3059882,finance,ゴールデンクロス形成中
+23,7164.T,"ZENKOKU HOSHO Co.,Ltd.",68.3,74,62,68,👀 監視・買い検討,3166.0,4206.0,13.53165,1.8207823,finance,総合的に良好な状態
+24,4062.T,"Ibiden Co.,Ltd.",68.1,73,37,90,👀 監視・買い検討,9157.0,25571.0,77.5163,4.714375,defense,政策重点銘柄（defense） / ゴールデンクロス形成中 / バリュエーション割高注意
+25,5706.T,"Mitsui Kinzoku Company, Limited",68.1,79,51,72,👀 監視・買い検討,31290.0,17902.0,38.31413,4.929121,rare_earth,政策重点銘柄（rare_earth） / ゴールデンクロス形成中 / 出来高急増 / バリュエーション割高注意 / 高ROE優良企業
+26,6479.T,MINEBEA MITSUMI Inc.,67.9,50,63,90,👀 監視・買い検討,3310.0,13293.0,21.142054,1.5741163,defense,政策重点銘柄（defense） / ゴールデンクロス形成中
+27,3436.T,Sumco Corporation,67.8,78,51,72,👀 監視・買い検討,1614.0,5644.0,,0.9758959,rare_earth,政策重点銘柄（rare_earth） / ゴールデンクロス形成中
+28,1662.T,"Japan Petroleum Exploration Co., Ltd.",67.7,70,60,72,👀 監視・買い検討,2357.0,6033.0,6.949317,1.0689726,rare_earth,政策重点銘柄（rare_earth） / ゴールデンクロス形成中 / バリュエーション割安
+29,8725.T,"MS&AD Insurance Group Holdings, Inc.",67.6,67,68,68,👀 監視・買い検討,4320.0,63385.0,8.960611,1.3832127,finance,ゴールデンクロス形成中 / 高ROE優良企業
+30,6367.T,"Daikin Industries,Ltd.",66.8,73,51,74,👀 監視・買い検討,19730.0,57775.0,21.097092,1.8324156,green_energy,政策重点銘柄（green_energy） / 出来高急増
+31,5253.T,COVER Corporation,66.8,65,63,72,👀 監視・買い検討,1690.0,1109.0,20.833332,5.3151503,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中 / バリュエーション割高注意 / 高ROE優良企業
+32,1802.T,Obayashi Corporation,66.6,62,61,76,👀 監視・買い検討,4153.0,28549.0,17.391123,2.3907206,infrastructure,政策重点銘柄（infrastructure） / ゴールデンクロス形成中 / 高ROE優良企業
+33,4042.T,Tosoh Corporation,66.6,73,53,72,👀 監視・買い検討,2640.0,8170.0,20.790674,1.0199867,rare_earth,政策重点銘柄（rare_earth） / ゴールデンクロス形成中
+34,9531.T,"Tokyo Gas Co.,Ltd.",66.2,68,55,74,👀 監視・買い検討,7575.0,25508.0,14.641359,1.5969366,green_energy,政策重点銘柄（green_energy） / ゴールデンクロス形成中
+35,6503.T,Mitsubishi Electric Corporation,66.2,79,42,74,👀 監視・買い検討,5850.0,119711.0,30.674845,2.8828611,green_energy,政策重点銘柄（green_energy） / ゴールデンクロス形成中 / 出来高急増 / バリュエーション割高注意
+36,1801.T,Taisei Corporation,66.2,79,40,76,👀 監視・買い検討,18795.0,30638.0,22.988575,3.5530362,infrastructure,政策重点銘柄（infrastructure） / ゴールデンクロス形成中 / 出来高急増
+37,5713.T,"Sumitomo Metal Mining Co., Ltd.",66.1,80,43,72,👀 監視・買い検討,10010.0,27082.0,112.35829,1.4246576,rare_earth,政策重点銘柄（rare_earth） / ゴールデンクロス形成中 / バリュエーション割高注意
+38,3479.T,TKP Corporation,66.0,78,45,72,👀 監視・買い検討,2370.0,901.0,31.949312,2.2080383,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中 / 出来高急増 / バリュエーション割高注意
+39,9338.T,Inforich Inc.,66.0,79,44,72,👀 監視・買い検討,4545.0,446.0,25.0,5.8285146,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中 / 出来高急増 / バリュエーション割高注意 / 高ROE優良企業
+40,7806.T,"MTG Co., Ltd.",65.9,58,68,72,👀 監視・買い検討,5270.0,2072.0,26.385622,3.848634,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中 / 高ROE優良企業
+41,6146.T,Disco Corporation,65.8,67,43,84,👀 監視・買い検討,74060.0,80304.0,63.694378,14.809476,semiconductor,政策重点銘柄（semiconductor） / ゴールデンクロス形成中 / バリュエーション割高注意
+42,7011.T,"Mitsubishi Heavy Industries, Ltd.",65.6,64,39,90,👀 監視・買い検討,4965.0,166830.0,60.972614,6.288305,defense,政策重点銘柄（defense） / ゴールデンクロス形成中 / バリュエーション割高注意
+43,4021.T,Nissan Chemical Corporation,65.5,67,70,60,👀 監視・買い検討,6597.0,8852.0,19.801891,3.669397,medical,ゴールデンクロス形成中 / 高ROE優良企業
+44,5714.T,"Dowa Holdings Co., Ltd.",65.5,74,48,72,👀 監視・買い検討,10140.0,6040.0,29.850746,1.4929557,rare_earth,政策重点銘柄（rare_earth） / ゴールデンクロス形成中
+45,1803.T,Shimizu Corporation,65.4,68,50,76,👀 監視・買い検討,3452.0,23355.0,23.419268,2.6012073,infrastructure,政策重点銘柄（infrastructure） / ゴールデンクロス形成中
+46,4565.T,"Nxera Pharma Co., Ltd.",64.8,73,47,72,👀 監視・買い検討,897.0,812.0,,1.3307835,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中
+47,6723.T,Renesas Electronics Corporation,64.8,59,49,84,👀 監視・買い検討,2908.0,52611.0,,2.158455,semiconductor,政策重点銘柄（semiconductor） / ゴールデンクロス形成中
+48,4519.T,"Chugai Pharmaceutical Co., Ltd.",64.2,79,52,60,👀 監視・買い検討,9930.0,163419.0,37.593697,8.067177,medical,ゴールデンクロス形成中 / 出来高急増 / バリュエーション割高注意 / 高ROE優良企業
+49,8113.T,Unicharm Corporation,64.0,72,43,74,👀 監視・買い検討,1065.0,18530.0,28.567598,2.3317065,green_energy,政策重点銘柄（green_energy） / ゴールデンクロス形成中
+50,7095.T,"Macbee Planet, Inc.",63.8,39,83,72,👀 監視・買い検討,1461.0,204.0,7.267572,1.5479138,startup_growth,政策重点銘柄（startup_growth） / 高ROE優良企業
+51,9158.T,CUC Inc.,63.8,57,62,72,👀 監視・買い検討,938.0,275.0,15.847272,0.87056756,startup_growth,政策重点銘柄（startup_growth）
+52,1812.T,Kajima Corporation,63.3,68,43,76,👀 監視・買い検討,7085.0,33012.0,19.802118,2.479645,infrastructure,政策重点銘柄（infrastructure） / ゴールデンクロス形成中
+53,8316.T,"Sumitomo Mitsui Financial Group, Inc.",63.2,69,51,68,👀 監視・買い検討,5963.0,227668.0,15.948967,1.4584361,finance,ゴールデンクロス形成中
+54,4704.T,Trend Micro Incorporated,63.2,53,58,78,👀 監視・買い検討,5688.0,7433.0,24.390034,5.690407,ai_digital,政策重点銘柄（ai_digital） / 出来高急増 / バリュエーション割高注意 / 高ROE優良企業
+55,8001.T,ITOCHU Corporation,63.2,68,52,68,👀 監視・買い検討,2192.5,153461.0,16.501091,2.4308577,finance,ゴールデンクロス形成中
+56,4208.T,UBE Corporation,63.0,65,48,74,👀 監視・買い検討,2802.0,2722.0,47.39513,0.6407403,green_energy,政策重点銘柄（green_energy） / ゴールデンクロス形成中 / バリュエーション割高注意
+57,8306.T,"Mitsubishi UFJ Financial Group, Inc.",63.0,70,49,68,👀 監視・買い検討,2942.0,332799.0,17.482767,1.5609754,finance,ゴールデンクロス形成中
+58,4371.T,Core Concept Technologies Inc.,62.8,38,81,72,👀 監視・買い検討,1120.0,179.0,13.227826,3.592922,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / 高ROE優良企業
+59,8411.T,"Mizuho Financial Group, Inc.",62.4,70,47,68,👀 監視・買い検討,7175.0,176577.0,17.006802,1.5859393,finance,ゴールデンクロス形成中
+60,3692.T,"FFRI Security, Inc.",62.2,50,65,72,👀 監視・買い検討,8870.0,702.0,60.24178,20.61046,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中 / バリュエーション割高注意 / 高ROE優良企業
+61,3491.T,"GA technologies Co., Ltd.",62.2,50,65,72,👀 監視・買い検討,1635.0,671.0,16.807156,2.1761613,startup_growth,政策重点銘柄（startup_growth） / 出来高急増
+62,7012.T,"Kawasaki Heavy Industries, Ltd.",61.9,63,28,90,👀 監視・買い検討,17915.0,29948.0,31.056063,3.707879,defense,政策重点銘柄（defense） / ゴールデンクロス形成中 / バリュエーション割高注意
+63,7741.T,HOYA Corporation,61.7,64,61,60,👀 監視・買い検討,27545.0,93124.0,45.249203,9.077523,medical,ゴールデンクロス形成中 / バリュエーション割高注意 / 高ROE優良企業
+64,5019.T,"Idemitsu Kosan Co.,Ltd.",61.6,69,41,72,👀 監視・買い検討,1416.5,17347.0,41.321472,0.9858384,rare_earth,政策重点銘柄（rare_earth） / ゴールデンクロス形成中 / バリュエーション割高注意
+65,7157.T,Lifenet Insurance Company,61.2,73,35,72,👀 監視・買い検討,2091.0,1680.0,22.935177,1.7250268,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中
+66,4483.T,JMDC Inc.,61.0,67,41,72,👀 監視・買い検討,3960.0,2590.0,42.917526,3.1631365,startup_growth,政策重点銘柄（startup_growth） / バリュエーション割高注意
+67,6562.T,"Geniee, Inc.",60.8,45,66,72,👀 監視・買い検討,1047.0,128.0,11.947964,1.3478512,startup_growth,政策重点銘柄（startup_growth）
+68,9348.T,"ispace, inc.",60.7,80,25,72,👀 監視・買い検討,601.0,878.0,,5.2152934,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中
+69,6200.T,"Insource Co., Ltd.",60.5,40,71,72,👀 監視・買い検討,708.0,595.0,14.38732,5.2418046,startup_growth,政策重点銘柄（startup_growth） / バリュエーション割高注意 / 高ROE優良企業
+70,5139.T,OpenWork Inc.,60.5,47,63,72,👀 監視・買い検討,963.0,199.0,20.24385,3.0525496,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / 高ROE優良企業
+71,6030.T,"Adventure, Inc.",60.1,62,44,72,👀 監視・買い検討,1971.0,147.0,,1.5430311,startup_growth,政策重点銘柄（startup_growth）
+72,5592.T,"Kusurinomadoguchi, Inc.",60.0,42,67,72,👀 監視・買い検討,2720.0,305.0,15.060074,3.0824955,startup_growth,政策重点銘柄（startup_growth） / 高ROE優良企業
+73,5741.T,UACJ Corporation,60.0,61,45,72,👀 監視・買い検討,2480.0,4491.0,24.630053,1.3654275,rare_earth,政策重点銘柄（rare_earth） / ゴールデンクロス形成中
+74,3697.T,SHIFT Inc.,59.8,44,64,72,⏸️ 様子見,657.1,1680.0,19.377764,4.0366125,startup_growth,政策重点銘柄（startup_growth） / バリュエーション割高注意 / 高ROE優良企業
+75,5020.T,"ENEOS Holdings, Inc.",59.6,68,33,74,⏸️ 様子見,1456.0,39165.0,83.34288,1.2287303,green_energy,政策重点銘柄（green_energy） / ゴールデンクロス形成中 / バリュエーション割高注意
+76,4431.T,"Smaregi, Inc.",59.4,42,65,72,⏸️ 様子見,2588.0,498.0,28.819597,6.0267477,startup_growth,政策重点銘柄（startup_growth） / 出来高急増 / バリュエーション割高注意 / 高ROE優良企業
+77,4183.T,"Mitsui Chemicals, Inc.",59.3,65,38,72,⏸️ 様子見,2313.5,8711.0,48.541756,0.98792493,rare_earth,政策重点銘柄（rare_earth） / ゴールデンクロス形成中 / バリュエーション割高注意
+78,3496.T,"Azoom Co.,Ltd",59.2,39,68,72,⏸️ 様子見,4360.0,535.0,28.735254,8.939831,startup_growth,政策重点銘柄（startup_growth） / バリュエーション割高注意 / 高ROE優良企業
+79,9519.T,"RENOVA, Inc.",59.2,42,62,74,⏸️ 様子見,721.0,652.0,10.61543,0.58022934,"green_energy, startup_growth","政策重点銘柄（green_energy, startup_growth） / バリュエーション割安"
+80,4502.T,Takeda Pharmaceutical Company Limited,59.1,72,43,60,⏸️ 様子見,5790.0,91459.0,81.96489,1.1966414,medical,ゴールデンクロス形成中 / 出来高急増 / バリュエーション割高注意
+81,7373.T,"Aidma Holdings, Inc.",59.0,35,72,72,⏸️ 様子見,1857.0,276.0,14.793277,3.8270354,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / 高ROE優良企業
+82,6920.T,Lasertec Corporation,59.0,41,51,84,⏸️ 様子見,30640.0,27611.0,32.67988,12.175292,semiconductor,政策重点銘柄（semiconductor） / ゴールデンクロス形成中 / バリュエーション割高注意 / 高ROE優良企業
+83,5707.T,"Toho Zinc Co., Ltd.",58.3,50,52,72,⏸️ 様子見,1547.0,210.0,,7.837594,rare_earth,政策重点銘柄（rare_earth） / ゴールデンクロス形成中 / 高ROE優良企業
+84,4575.T,"CanBas Co., Ltd.",58.2,67,32,72,⏸️ 様子見,849.0,167.0,,7.040385,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中
+85,7352.T,TWOSTONE&Sons Inc.,57.5,39,62,72,⏸️ 様子見,605.0,263.0,58.454105,7.095443,startup_growth,政策重点銘柄（startup_growth） / バリュエーション割高注意 / 高ROE優良企業
+86,9168.T,"Rise Consulting Group, Inc.",57.4,26,77,72,⏸️ 様子見,516.0,125.0,8.382066,1.7647059,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / 高ROE優良企業
+87,4592.T,SanBio Company Limited,57.3,66,30,72,⏸️ 様子見,2258.0,1762.0,,330.45514,startup_growth,政策重点銘柄（startup_growth） / 出来高急増
+88,3923.T,"Rakus Co., Ltd.",57.2,28,74,72,⏸️ 様子見,766.1,2762.0,25.908014,9.938251,startup_growth,政策重点銘柄（startup_growth） / バリュエーション割高注意 / 高ROE優良企業
+89,6544.T,"Japan Elevator Service Holdings Co.,Ltd.",56.8,44,54,72,⏸️ 様子見,1630.5,2904.0,46.294716,13.082935,startup_growth,政策重点銘柄（startup_growth） / バリュエーション割高注意 / 高ROE優良企業
+90,3498.T,"Kasumigaseki Capital Co.,Ltd.",56.7,36,63,72,⏸️ 様子見,7350.0,1747.0,14.347063,2.6191928,startup_growth,政策重点銘柄（startup_growth） / 高ROE優良企業
+91,4563.T,"AnGes, Inc.",56.5,57,38,72,⏸️ 様子見,63.0,243.0,,7.9355083,startup_growth,政策重点銘柄（startup_growth）
+92,3769.T,"GMO Payment Gateway, Inc.",56.2,26,66,78,⏸️ 様子見,7444.0,5647.0,26.178085,5.135454,"ai_digital, finance","政策重点銘柄（ai_digital, finance） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意 / 高ROE優良企業"
+93,4051.T,"GMO Financial Gate, Inc.",56.0,33,64,72,⏸️ 様子見,5000.0,413.0,25.38071,6.7813993,startup_growth,政策重点銘柄（startup_growth） / バリュエーション割高注意 / 高ROE優良企業
+94,4475.T,Hennge K.K.,55.9,26,72,72,⏸️ 様子見,982.0,306.0,23.25361,9.337441,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意 / 高ROE優良企業
+95,2980.T,SRE Holdings Corporation,55.9,44,51,72,⏸️ 様子見,2789.0,449.0,42.37314,2.9902499,startup_growth,政策重点銘柄（startup_growth） / バリュエーション割高注意 / 高ROE優良企業
+96,5243.T,note inc.,55.8,42,53,72,⏸️ 様子見,2160.0,391.0,217.30383,12.567347,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意 / 高ROE優良企業
+97,5842.T,Integral Corporation,55.3,51,41,72,⏸️ 様子見,3325.0,1126.0,19.267542,1.807984,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中
+98,5038.T,"eWeLL Co.,Ltd.",55.3,32,63,72,⏸️ 様子見,2218.0,336.0,34.12833,10.022956,startup_growth,政策重点銘柄（startup_growth） / バリュエーション割高注意 / 高ROE優良企業
+99,9433.T,KDDI Corporation,55.1,22,67,78,⏸️ 様子見,2616.0,99593.0,14.493074,2.0051293,ai_digital,政策重点銘柄（ai_digital）
+100,4307.T,"Nomura Research Institute, Ltd.",55.0,21,68,78,⏸️ 様子見,3833.0,21975.0,21.598017,4.381909,ai_digital,政策重点銘柄（ai_digital） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意 / 高ROE優良企業
+101,7059.T,"COPRO-HOLDINGS. Co., Ltd.",54.8,33,60,72,⏸️ 様子見,998.0,382.0,19.530333,4.3964176,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意 / 高ROE優良企業
+102,7388.T,FP Partner Inc.,54.6,43,48,72,⏸️ 様子見,2281.0,524.0,17.986122,4.483591,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中 / バリュエーション割高注意 / 高ROE優良企業
+103,3915.T,"TerraSky Co.,Ltd.",54.5,21,73,72,⏸️ 様子見,1892.0,244.0,23.095703,2.0376382,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待）
+104,4413.T,"baudroie,inc.",54.0,19,74,72,⏸️ 様子見,1712.0,533.0,26.314173,7.662904,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意 / 高ROE優良企業
+105,4259.T,ExaWizards Inc.,53.8,50,37,72,⏸️ 様子見,690.0,585.0,,15.608035,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待）
+106,5032.T,ANYCOLOR Inc.,53.2,27,62,72,⏸️ 様子見,4020.0,2450.0,16.892176,8.859699,startup_growth,政策重点銘柄（startup_growth） / バリュエーション割高注意 / 高ROE優良企業
+107,4894.T,Cuorips Inc.,53.2,57,27,72,⏸️ 様子見,8320.0,686.0,,13.691304,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中
+108,4058.T,"Toyokumo, Inc.",53.2,21,69,72,⏸️ 様子見,1799.0,197.0,19.26743,4.8744802,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意 / 高ROE優良企業
+109,3984.T,"User Local, Inc.",53.0,21,68,72,⏸️ 様子見,1591.0,254.0,15.43162,2.7173865,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / 高ROE優良企業
+110,4071.T,"Plus Alpha Consulting Co.,Ltd.",53.0,23,66,72,⏸️ 様子見,2038.0,864.0,26.041399,5.8715405,startup_growth,政策重点銘柄（startup_growth） / バリュエーション割高注意 / 高ROE優良企業
+111,9211.T,f-code Inc.,52.8,18,71,72,⏸️ 様子見,1488.0,182.0,16.05178,2.4080281,startup_growth,政策重点銘柄（startup_growth） / 高ROE優良企業
+112,9432.T,"NTT, Inc.",52.3,14,67,78,⏸️ 様子見,151.0,123204.0,12.022292,1.2975519,ai_digital,政策重点銘柄（ai_digital） / RSI売られすぎ圏（反発期待）
+113,9467.T,"AlphaPolis Co., Ltd.",52.2,12,76,72,⏸️ 様子見,1250.0,363.0,17.390095,2.425922,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / 高ROE優良企業
+114,4375.T,Safie Inc.,52.1,46,36,72,⏸️ 様子見,836.0,466.0,,5.1193185,startup_growth,政策重点銘柄（startup_growth） / ゴールデンクロス形成中
+115,4384.T,Raksul Inc.,51.9,42,40,72,⏸️ 様子見,1899.0,1100.0,41.66301,6.677591,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意
+116,2998.T,CREAL Inc.,51.8,17,69,72,⏸️ 様子見,761.0,274.0,21.01049,2.2499084,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / 高ROE優良企業
+117,6869.T,Sysmex Corporation,51.8,35,62,60,⏸️ 様子見,1338.5,8341.0,17.889603,1.6654494,medical,特段の注目シグナルなし
+118,6532.T,"Baycurrent, Inc.",51.5,35,47,72,⏸️ 様子見,4480.0,6803.0,19.685385,6.4789224,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意
+119,4165.T,"PLAID,Inc.",51.3,19,65,72,⏸️ 様子見,503.0,206.0,18.902668,4.0689535,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意 / 高ROE優良企業
+120,4194.T,"Visional, Inc.",51.3,12,73,72,⏸️ 様子見,6878.0,2761.0,17.825119,3.7823691,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / 高ROE優良企業
+121,4417.T,Global Security Experts Inc.,50.8,38,41,72,⏸️ 様子見,2760.0,415.0,62.106213,10.365575,startup_growth,政策重点銘柄（startup_growth） / バリュエーション割高注意
+122,4543.T,Terumo Corporation,50.6,35,58,60,⏸️ 様子見,1962.0,28941.0,22.171997,1.9010965,medical,特段の注目シグナルなし
+123,5027.T,AnyMind Group Inc.,50.6,17,65,72,⏸️ 様子見,473.0,283.0,16.555828,1.6739571,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待）
+124,6501.T,"Hitachi, Ltd.",50.5,30,47,74,⏸️ 様子見,4930.0,222371.0,29.497995,3.5074987,green_energy,政策重点銘柄（green_energy） / ゴールデンクロス形成中
+125,4443.T,"Sansan, Inc.",50.4,30,49,72,⏸️ 様子見,1105.0,1398.0,68.50589,8.3643055,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意
+126,4593.T,Healios K.K.,50.3,34,44,72,⏸️ 様子見,358.0,414.0,,8.465158,startup_growth,政策重点銘柄（startup_growth）
+127,3668.T,"COLOPL, Inc.",50.0,27,56,68,⏸️ 様子見,425.0,546.0,,0.8245526,finance,ゴールデンクロス形成中
+128,4419.T,Finatext Holdings Ltd.,49.3,27,49,72,💼 保有継続,843.0,432.0,49.76387,4.3099704,startup_growth,政策重点銘柄（startup_growth） / バリュエーション割高注意
+129,7172.T,"Japan Investment Adviser Co., Ltd.",49.2,19,58,72,💼 保有継続,1963.0,1189.0,11.273834,1.6172057,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待）
+130,9552.T,"Quants Research Institute Holdings, Inc.",48.6,19,56,72,💼 保有継続,783.0,423.0,16.806181,7.65164,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意 / 高ROE優良企業
+131,3133.T,"kaihan co.,Ltd.",48.5,39,32,72,💼 保有継続,374.0,213.0,,29.867432,startup_growth,政策重点銘柄（startup_growth） / 出来高急増
+132,4180.T,"Appier Group, Inc.",48.3,12,63,72,💼 保有継続,700.0,713.0,28.011206,1.9207762,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待）
+133,6027.T,"Bengo4.com,Inc.",48.1,21,52,72,💼 保有継続,2307.0,522.0,38.462822,8.05618,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意 / 高ROE優良企業
+134,6526.T,Socionext Inc.,47.8,14,45,84,💼 保有継続,1946.5,3411.0,34.481842,2.6461394,semiconductor,政策重点銘柄（semiconductor） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意
+135,4377.T,ONE CAREER Inc.,47.8,19,53,72,💼 保有継続,1937.0,349.0,56.820183,6.396962,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意 / 高ROE優良企業
+136,3993.T,PKSHA Technology Inc.,47.2,21,49,72,💼 保有継続,2758.0,857.0,31.947178,2.483879,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意
+137,4393.T,"Bank of Innovation,Inc.",46.9,14,56,72,💼 保有継続,5450.0,217.0,16.025642,3.5305018,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / 高ROE優良企業
+138,4477.T,"BASE,Inc.",46.7,16,53,72,💼 保有継続,302.0,348.0,104.137924,2.3295457,startup_growth,政策重点銘柄（startup_growth） / バリュエーション割高注意
+139,9556.T,INTLOOP Inc.,46.6,14,55,72,💼 保有継続,3085.0,289.0,43.475197,4.426093,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意 / 高ROE優良企業
+140,4449.T,giftee Inc.,45.9,24,41,72,💼 保有継続,982.0,292.0,31.154821,3.1968124,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意
+141,5246.T,"ELEMENTS, Inc.",44.7,24,37,72,💼 保有継続,607.0,165.0,,4.740447,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待）
+142,3182.T,Oisix ra daichi Inc.,44.5,14,48,72,💼 保有継続,1385.0,481.0,21.97715,1.7690862,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待）
+143,4480.T,"Medley, Inc.",44.3,28,31,72,💼 保有継続,2045.0,632.0,67.1152,4.269864,startup_growth,政策重点銘柄（startup_growth） / バリュエーション割高注意
+144,9166.T,GENDA Inc.,44.1,19,41,72,💼 保有継続,611.0,1130.0,208.53242,1.7838167,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意
+145,3994.T,"Money Forward, Inc.",41.1,18,32,72,💼 保有継続,3052.0,1689.0,106.378525,3.8509047,startup_growth,政策重点銘柄（startup_growth） / RSI売られすぎ圏（反発期待） / バリュエーション割高注意
