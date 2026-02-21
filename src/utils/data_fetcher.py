@@ -131,8 +131,8 @@ class DataFetcher:
             time.sleep(random.uniform(1.5, 3.0))
 
             if info and history is not None:
-                info["price_history"] = history
-                results[ticker] = info
+           　info["price_history"] = history
+            results[ticker] = info
 
         logger.success(f"取得完了: {len(results)}/{total} 銘柄")
         return results
