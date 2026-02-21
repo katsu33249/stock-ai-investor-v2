@@ -1,13 +1,11 @@
 """
-technical.py - テクニカル分析モジュール
+technical.py - テクニカル分析モジュール（プロ仕様出来高分析）
 
-RSI、MACD、移動平均線などのテクニカル指標を計算し、
-0〜100のスコアに変換します。
-
-初心者メモ:
-- RSI: 30以下が売られすぎ（買いシグナル）、70以上が買われすぎ（売りシグナル）
-- MACD: シグナルラインを上抜けると買いシグナル
-- ゴールデンクロス: 短期移動平均が長期移動平均を上抜けること（強い買いシグナル）
+出来高分析を3条件で強化：
+① 出来高条件: 5日平均 >= 20日平均 × 1.5
+② 価格条件:   株価が25日線より上 かつ 直近高値の3%以内
+③ 陽線率:     直近5日で陽線3本以上
+→ 「下げの出来高増加」を排除します
 """
 
 import pandas as pd
@@ -16,7 +14,6 @@ from loguru import logger
 
 
 class TechnicalAnalyzer:
-    """テクニカル分析クラス"""
 
     def __init__(self, config: dict = None):
         cfg = config or {}
@@ -30,32 +27,25 @@ class TechnicalAnalyzer:
         self.sma_long = cfg.get("sma_long", 75)
 
     def calculate_rsi(self, prices: pd.Series) -> float:
-        """RSIを計算"""
         if len(prices) < self.rsi_period + 1:
             return 50.0
-
         delta = prices.diff()
         gain = delta.clip(lower=0)
         loss = -delta.clip(upper=0)
-
         avg_gain = gain.ewm(span=self.rsi_period, adjust=False).mean()
         avg_loss = loss.ewm(span=self.rsi_period, adjust=False).mean()
-
         rs = avg_gain / (avg_loss + 1e-10)
         rsi = 100 - (100 / (1 + rs))
         return float(rsi.iloc[-1])
 
     def calculate_macd(self, prices: pd.Series) -> dict:
-        """MACDを計算"""
         if len(prices) < self.macd_slow + self.macd_signal:
-            return {"macd": 0, "signal": 0, "histogram": 0}
-
+            return {"macd": 0, "signal": 0, "histogram": 0, "prev_histogram": 0}
         ema_fast = prices.ewm(span=self.macd_fast, adjust=False).mean()
         ema_slow = prices.ewm(span=self.macd_slow, adjust=False).mean()
         macd_line = ema_fast - ema_slow
         signal_line = macd_line.ewm(span=self.macd_signal, adjust=False).mean()
         histogram = macd_line - signal_line
-
         return {
             "macd": float(macd_line.iloc[-1]),
             "signal": float(signal_line.iloc[-1]),
@@ -64,38 +54,84 @@ class TechnicalAnalyzer:
         }
 
     def calculate_moving_averages(self, prices: pd.Series) -> dict:
-        """移動平均線を計算"""
         current_price = float(prices.iloc[-1])
         result = {"current_price": current_price}
-
         for period in [5, 25, 75, 200]:
             if len(prices) >= period:
                 ma = float(prices.rolling(period).mean().iloc[-1])
                 result[f"sma{period}"] = ma
                 result[f"above_sma{period}"] = current_price > ma
-
-        # ゴールデンクロス/デッドクロス判定
         if f"sma{self.sma_short}" in result and f"sma{self.sma_long}" in result:
             result["golden_cross"] = (
                 result[f"sma{self.sma_short}"] > result[f"sma{self.sma_long}"]
             )
-
         return result
 
     def calculate_volume_trend(self, df: pd.DataFrame) -> dict:
-        """出来高トレンドを計算"""
-        if len(df) < 20:
-            return {"volume_ratio": 1.0, "volume_trend": "neutral"}
+        """
+        プロ仕様の出来高分析（3条件）
 
-        recent_volume = df["volume"].tail(5).mean()
-        avg_volume = df["volume"].tail(20).mean()
-        volume_ratio = recent_volume / (avg_volume + 1e-10)
+        ① 出来高条件: 5日平均 >= 20日平均 × 1.5
+        ② 価格条件:   25日線より上 かつ 直近高値の3%以内
+        ③ 陽線率:     直近5日で陽線3本以上
 
-        trend = "high" if volume_ratio > 1.5 else "low" if volume_ratio < 0.7 else "neutral"
-        return {"volume_ratio": float(volume_ratio), "volume_trend": trend}
+        3条件すべて満たす = 本物の上昇出来高（最高評価）
+        出来高増加でも価格下落 = 下げの出来高（低評価）
+        """
+        if len(df) < 25:
+            return {
+                "volume_ratio": 1.0,
+                "volume_trend": "neutral",
+                "pro_conditions": {},
+                "passed_conditions": 0,
+            }
+
+        # ① 出来高条件
+        vol_5d = df["volume"].tail(5).mean()
+        vol_20d = df["volume"].tail(20).mean()
+        volume_ratio = vol_5d / (vol_20d + 1e-10)
+        cond_volume = volume_ratio >= 1.5
+
+        # ② 価格条件
+        current_price = float(df["close"].iloc[-1])
+        sma25 = float(df["close"].rolling(25).mean().iloc[-1])
+        recent_high = float(df["high"].tail(20).max())
+        cond_above_sma25 = current_price > sma25
+        cond_near_high = current_price >= recent_high * 0.97
+        cond_price = cond_above_sma25 and cond_near_high
+
+        # ③ 陽線率
+        recent_5 = df.tail(5)
+        bullish_candles = int((recent_5["close"] > recent_5["open"]).sum())
+        cond_bullish = bullish_candles >= 3
+
+        passed = sum([cond_volume, cond_price, cond_bullish])
+
+        if passed == 3:
+            trend = "strong_up"
+        elif passed == 2:
+            trend = "high"
+        elif cond_volume and not cond_price:
+            trend = "down_volume"
+        elif passed == 1:
+            trend = "neutral"
+        else:
+            trend = "low"
+
+        return {
+            "volume_ratio": round(float(volume_ratio), 2),
+            "volume_trend": trend,
+            "pro_conditions": {
+                "volume_surge": cond_volume,
+                "above_sma25": cond_above_sma25,
+                "near_recent_high": cond_near_high,
+                "bullish_candles": bullish_candles,
+                "bullish_candle_ok": cond_bullish,
+            },
+            "passed_conditions": passed,
+        }
 
     def calculate_price_momentum(self, prices: pd.Series) -> dict:
-        """価格モメンタムを計算"""
         result = {}
         for days in [5, 20, 60]:
             if len(prices) > days:
@@ -107,12 +143,11 @@ class TechnicalAnalyzer:
         """
         テクニカル総合スコアを計算（0〜100点）
 
-        採点基準:
-        - RSI (20点): 適切なゾーン（40-60）に近いほど高得点
-        - MACD (20点): ヒストグラム上昇中、ゴールデンクロス近辺
-        - 移動平均線 (25点): 上昇トレンド配置
-        - 出来高 (15点): 出来高増加を伴う上昇
-        - モメンタム (20点): 短中長期の上昇モメンタム
+        - RSI        : 20点
+        - MACD       : 20点
+        - 移動平均線 : 25点
+        - 出来高     : 15点（プロ仕様3条件）
+        - モメンタム : 20点
         """
         if df is None or len(df) < 30:
             return {"total_score": 50, "details": {}}
@@ -124,33 +159,28 @@ class TechnicalAnalyzer:
         # ===== RSIスコア (20点) =====
         rsi = self.calculate_rsi(prices)
         details["rsi"] = round(rsi, 1)
-
-        if 40 <= rsi <= 55:          # 理想的なゾーン
+        if 40 <= rsi <= 55:
             rsi_score = 20
-        elif 35 <= rsi < 40:         # 少し売られすぎ（買いチャンス）
+        elif 35 <= rsi < 40:
             rsi_score = 16
-        elif 55 < rsi <= 65:         # 少し強め
+        elif 55 < rsi <= 65:
             rsi_score = 14
-        elif rsi < 35:               # 売られすぎ（反発期待）
+        elif rsi < 35:
             rsi_score = 12
-        elif 65 < rsi <= 70:         # やや過熱
+        elif 65 < rsi <= 70:
             rsi_score = 8
-        else:                         # 買われすぎ（リスク大）
+        else:
             rsi_score = 3
         score += rsi_score
 
         # ===== MACDスコア (20点) =====
         macd_data = self.calculate_macd(prices)
         details["macd"] = macd_data
-
         macd_score = 0
-        # MACDがプラス（強気）
         if macd_data["macd"] > 0:
             macd_score += 8
-        # ヒストグラムが上昇中（勢い増加）
         if macd_data["histogram"] > macd_data["prev_histogram"]:
             macd_score += 7
-        # シグナルとの関係
         if macd_data["macd"] > macd_data["signal"]:
             macd_score += 5
         score += macd_score
@@ -158,7 +188,6 @@ class TechnicalAnalyzer:
         # ===== 移動平均線スコア (25点) =====
         ma_data = self.calculate_moving_averages(prices)
         details["moving_averages"] = ma_data
-
         ma_score = 0
         if ma_data.get("above_sma5"):   ma_score += 5
         if ma_data.get("above_sma25"):  ma_score += 7
@@ -166,27 +195,41 @@ class TechnicalAnalyzer:
         if ma_data.get("golden_cross"): ma_score += 5
         score += ma_score
 
-        # ===== 出来高スコア (15点) =====
+        # ===== 出来高スコア (15点) プロ仕様 =====
         vol_data = self.calculate_volume_trend(df)
         details["volume"] = vol_data
+        passed = vol_data.get("passed_conditions", 0)
+        trend = vol_data["volume_trend"]
 
-        if vol_data["volume_trend"] == "high":
+        if trend == "strong_up":    # 3条件すべて満たす
             vol_score = 15
-        elif vol_data["volume_trend"] == "neutral":
-            vol_score = 8
+        elif trend == "high":       # 2条件
+            vol_score = 11
+        elif trend == "down_volume": # 下げの出来高（ペナルティ）
+            vol_score = 0
+        elif trend == "neutral":
+            vol_score = 6
         else:
-            vol_score = 3
+            vol_score = 2
         score += vol_score
 
         # ===== モメンタムスコア (20点) =====
         momentum = self.calculate_price_momentum(prices)
         details["momentum"] = momentum
-
         mom_score = 0
         if momentum.get("momentum_5d", 0) > 0:  mom_score += 5
         if momentum.get("momentum_20d", 0) > 0: mom_score += 8
         if momentum.get("momentum_60d", 0) > 0: mom_score += 7
         score += mom_score
+
+        # 出来高シグナルの表示用テキスト
+        volume_signal = {
+            "strong_up":   "🔥 本物の上昇出来高（3条件クリア）",
+            "high":        "📈 良好な出来高（2条件クリア）",
+            "down_volume": "⚠️ 下げの出来高増加（要注意）",
+            "neutral":     "➡️ 普通",
+            "low":         "📉 出来高減少",
+        }.get(trend, "")
 
         return {
             "total_score": min(100, max(0, score)),
@@ -194,6 +237,8 @@ class TechnicalAnalyzer:
             "signals": {
                 "rsi_signal": "oversold" if rsi < 35 else "overbought" if rsi > 70 else "neutral",
                 "trend": "uptrend" if ma_data.get("golden_cross") else "downtrend",
-                "volume_increasing": vol_data["volume_trend"] == "high",
+                "volume_increasing": trend in ["strong_up", "high"],
+                "volume_signal": volume_signal,
+                "volume_passed_conditions": passed,
             }
         }
