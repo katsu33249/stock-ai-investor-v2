@@ -9,6 +9,8 @@ yfinanceを使用して日本株の株価・財務情報を取得します。
 import yfinance as yf
 import pandas as pd
 import numpy as np
+import time
+import random
 from datetime import datetime, timedelta
 from loguru import logger
 from typing import Optional
@@ -122,10 +124,11 @@ class DataFetcher:
         results = {}
         total = len(tickers)
 
-        for i, ticker in enumerate(tickers, 1):
+for i, ticker in enumerate(tickers, 1):
             logger.info(f"データ取得中... ({i}/{total}): {ticker}")
             info = self.get_stock_info(ticker)
             history = self.get_price_history(ticker)
+            time.sleep(random.uniform(1.5, 3.0))
 
             if info and history is not None:
                 info["price_history"] = history
