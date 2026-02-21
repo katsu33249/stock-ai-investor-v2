@@ -1,41 +1,30 @@
 """
-discord_bot.py - Discord通知モジュール
-
-スクリーニング結果をDiscordチャンネルに自動送信します。
-日次レポート、シグナルアラート、ポートフォリオ更新を通知します。
-
-初心者メモ:
-Discord Webhook URLの取得方法:
-1. Discordサーバーの設定 → テキストチャンネル → 連携サービス
-2. 「ウェブフックを作成」をクリック
-3. 「ウェブフックURLをコピー」でURLを取得
-4. config/settings.yamlの discord_webhook_url に貼り付け
+discord_bot.py - Discord通知モジュール（10件・コメント強化版）
 """
 
 import requests
 import json
+import os
 from datetime import datetime
 from loguru import logger
 
 
 class DiscordNotifier:
-    """Discord通知クラス"""
 
     def __init__(self, webhook_url: str):
         self.webhook_url = webhook_url
         self.enabled = bool(webhook_url and webhook_url != "YOUR_DISCORD_WEBHOOK_URL")
 
     def send_daily_report(self, results: list[dict], market_overview: dict = None):
-        """日次スクリーニングレポートを送信"""
+        """日次スクリーニングレポートを送信（上位10件）"""
         if not self.enabled:
             logger.warning("Discord通知: Webhook URLが未設定")
             return
 
-        # ヘッダーEmbed
         today = datetime.now().strftime("%Y年%m月%d日")
         embeds = []
 
-        # 市場概況
+        # ① 市場概況
         if market_overview:
             market_fields = []
             for name, data in market_overview.items():
@@ -46,113 +35,116 @@ class DiscordNotifier:
                     "value": f"{data.get('price', 0):,.0f} {arrow} {change:+.2f}%",
                     "inline": True
                 })
-
             embeds.append({
-                "title": f"📊 市場概況 - {today}",
+                "title": f"📊 市場概況 — {today}",
                 "color": 0x2196F3,
                 "fields": market_fields,
             })
 
-        # トップ銘柄（上位5件）
-        top_stocks = results[:5]
-
-        if top_stocks:
+        # ② 強気買いシグナル（🔥）
+        strong_buy = [r for r in results if r.get("action") == "強気買い"][:5]
+        if strong_buy:
             fields = []
-            for r in top_stocks:
-                policy_tag = ""
-                if r.get("policy_sectors"):
-                    policy_tag = f" 🏛️{', '.join(r['policy_sectors'][:1])}"
-
-                fields.append({
-                    "name": f"{r['action_emoji']} {r['name']} ({r['ticker']}){policy_tag}",
-                    "value": (
-                        f"**総合スコア: {r['total_score']}点**\n"
-                        f"📊テクニカル:{r['technical_score']}点 "
-                        f"💰ファンダメンタル:{r['fundamental_score']}点 "
-                        f"🏛️政策:{r['policy_score']}点\n"
-                        f"株価: ¥{r.get('current_price', 0):,.0f} | "
-                        f"PER: {r.get('per', '-'):.1f}" if r.get("per") else
-                        f"株価: ¥{r.get('current_price', 0):,.0f}\n"
-                        f"💡 {r.get('comment', '')}"
-                    ),
-                    "inline": False
-                })
-
+            for r in strong_buy:
+                fields.append(self._build_stock_field(r))
             embeds.append({
-                "title": "🔥 本日の注目銘柄 TOP5",
+                "title": "🔥 強気買いシグナル",
                 "color": 0xFF5722,
                 "fields": fields,
-                "footer": {"text": "※投資判断はご自身でお願いします"},
-                "timestamp": datetime.utcnow().isoformat(),
             })
+
+        # ③ 買いシグナル（📈）
+        buy_signals = [r for r in results
+                      if r.get("action") in ["買い", "買い（RSI底値圏）", "買い（政策恩恵）"]][:5]
+        if buy_signals:
+            fields = []
+            for r in buy_signals:
+                fields.append(self._build_stock_field(r))
+            embeds.append({
+                "title": "📈 買いシグナル",
+                "color": 0xFF9800,
+                "fields": fields,
+            })
+
+        # ④ 総合TOP10ランキング
+        top10 = results[:10]
+        ranking_text = ""
+        for i, r in enumerate(top10, 1):
+            policy = "🏛️" if r.get("policy_sectors") else ""
+            ranking_text += (
+                f"`{i:2}.` {r['action_emoji']}{policy} **{r['name']}** "
+                f"({r['ticker']}) — **{r['total_score']:.0f}点**\n"
+                f"　　テク:{r['technical_score']} / ファン:{r['fundamental_score']} / 政策:{r['policy_score']}\n"
+            )
+
+        embeds.append({
+            "title": "🏆 本日のTOP10ランキング",
+            "description": ranking_text,
+            "color": 0x9C27B0,
+            "footer": {
+                "text": "⚠️ 本ツールは参考情報です。投資は自己責任でお願いします。"
+            },
+            "timestamp": datetime.utcnow().isoformat(),
+        })
 
         self._send_embeds(embeds)
         logger.success("Discord通知送信完了")
 
-    def send_signal_alert(self, result: dict):
-        """個別シグナルアラートを送信"""
-        if not self.enabled:
-            return
+    def _build_stock_field(self, r: dict) -> dict:
+        """銘柄フィールドを生成（詳細コメント付き）"""
+        # 政策セクター
+        policy_str = ""
+        if r.get("policy_sectors"):
+            sectors = r["policy_sectors"][:2]
+            policy_str = f"🏛️ {' / '.join(sectors)}\n"
 
-        score = result.get("total_score", 0)
-        color = 0xFF5722 if score >= 80 else 0xFF9800 if score >= 70 else 0x4CAF50
+        # データソース
+        source = r.get("data_source", "")
+        source_str = f"📂 {source}\n" if source else ""
 
-        embed = {
-            "title": f"🚨 シグナルアラート: {result.get('name')} ({result.get('ticker')})",
-            "color": color,
-            "fields": [
-                {
-                    "name": "判定",
-                    "value": f"{result.get('action_emoji')} **{result.get('action')}**",
-                    "inline": True
-                },
-                {
-                    "name": "総合スコア",
-                    "value": f"**{score}点 / 100点**",
-                    "inline": True
-                },
-                {
-                    "name": "内訳",
-                    "value": (
-                        f"テクニカル: {result.get('technical_score')}点\n"
-                        f"ファンダメンタル: {result.get('fundamental_score')}点\n"
-                        f"政策スコア: {result.get('policy_score')}点"
-                    ),
-                    "inline": False
-                },
-                {
-                    "name": "コメント",
-                    "value": result.get("comment", "なし"),
-                    "inline": False
-                },
-            ],
-            "timestamp": datetime.utcnow().isoformat(),
-            "footer": {"text": "Stock AI Investor | ⚠️ 投資は自己責任で"},
+        # AI財務コメント
+        ai_comment = r.get("ai_comment", "")
+        ai_str = f"🤖 {ai_comment[:60]}...\n" if len(ai_comment) > 60 else (f"🤖 {ai_comment}\n" if ai_comment else "")
+
+        # 基本指標
+        per_str = f"PER:{r.get('per', '-'):.1f}" if r.get("per") else "PER:-"
+        pbr_str = f"PBR:{r.get('pbr', '-'):.2f}" if r.get("pbr") else "PBR:-"
+        roe = r.get("roe")
+        roe_pct = roe * 100 if roe and roe < 1 else roe
+        roe_str = f"ROE:{roe_pct:.1f}%" if roe_pct else "ROE:-"
+
+        value = (
+            f"**総合スコア: {r['total_score']:.0f}点** — {r['action_emoji']} {r['action']}\n"
+            f"📊 テク:{r['technical_score']} 💰 ファン:{r['fundamental_score']} 🏛️ 政策:{r['policy_score']}\n"
+            f"💴 株価: ¥{r.get('current_price', 0):,.0f} | {per_str} | {pbr_str} | {roe_str}\n"
+            f"{policy_str}"
+            f"{source_str}"
+            f"{ai_str}"
+            f"💡 {r.get('comment', '')}"
+        )
+
+        return {
+            "name": f"{r['action_emoji']} {r['name']} ({r['ticker']})",
+            "value": value[:1024],  # Discord制限
+            "inline": False,
         }
 
-        self._send_embeds([embed])
-
     def send_error_notification(self, error_msg: str):
-        """エラー通知を送信"""
         if not self.enabled:
             return
-
         embed = {
             "title": "⚠️ システムエラー",
-            "description": f"```{error_msg}```",
+            "description": f"```{error_msg[:1000]}```",
             "color": 0xF44336,
             "timestamp": datetime.utcnow().isoformat(),
         }
         self._send_embeds([embed])
 
     def _send_embeds(self, embeds: list):
-        """Discord WebhookにEmbedsを送信"""
         payload = {
             "username": "Stock AI Investor 🤖",
-            "avatar_url": "https://cdn.discordapp.com/embed/avatars/0.png",
-            "embeds": embeds[:10],  # Discord制限: 最大10 embeds
+            "embeds": embeds[:10],
         }
-
         try:
             response = requests.post(
                 self.webhook_url,
@@ -163,6 +155,6 @@ class DiscordNotifier:
             if response.status_code == 204:
                 logger.debug("Discord送信成功")
             else:
-                logger.warning(f"Discord送信ステータス: {response.status_code}")
+                logger.warning(f"Discord送信ステータス: {response.status_code} / {response.text}")
         except Exception as e:
             logger.error(f"Discord送信エラー: {e}")
