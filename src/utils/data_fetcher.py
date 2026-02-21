@@ -124,7 +124,7 @@ class DataFetcher:
         results = {}
         total = len(tickers)
 
-for i, ticker in enumerate(tickers, 1):
+　　　　　　for i, ticker in enumerate(tickers, 1):
             logger.info(f"データ取得中... ({i}/{total}): {ticker}")
             info = self.get_stock_info(ticker)
             history = self.get_price_history(ticker)
