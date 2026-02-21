@@ -5,8 +5,8 @@ permissions:
 
 on:
   schedule:
-    # 毎朝9時（平日）→ 株価スクリーニング
-    - cron: "0 0 * * 1-5"
+    # 毎朝6時（平日）→ 株価スクリーニング
+    - cron: "0 21 * * 0-4"
     # 毎月1日 夜9時 → EDINET DB財務データ更新
     - cron: "0 12 1 * *"
   workflow_dispatch:
