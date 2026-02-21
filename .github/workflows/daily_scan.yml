@@ -5,6 +5,9 @@
 
 name: 📊 Daily Stock Scan
 
+permissions:
+  contents: write
+
 on:
   # 毎日平日 0:00 UTC = 9:00 JST に実行
   schedule:
