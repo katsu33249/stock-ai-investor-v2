@@ -48,7 +48,7 @@ jobs:
           cp config/settings.yaml config/settings_runtime.yaml
           sed -i "s|YOUR_DISCORD_WEBHOOK_URL|${{ secrets.DISCORD_WEBHOOK_URL }}|g" config/settings_runtime.yaml
 
-　　　　- name: 🚀 スクリーニング実行
+      - name: 🚀 スクリーニング実行
         env:
           JQUANTS_REFRESH_TOKEN: ${{ secrets.JQUANTS_REFRESH_TOKEN }}
           EDINET_DB_API_KEY: ${{ secrets.EDINET_DB_API_KEY }}
