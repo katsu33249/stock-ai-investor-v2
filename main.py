@@ -214,9 +214,13 @@ def run_update_fundamentals(config: dict):
             data = {"updated_at": datetime.now().isoformat()}
 
             if res_r.status_code == 200:
-                raw = res_r.json().get("data", {})
-                if isinstance(raw, list):
-                    raw = raw[0] if raw else {}
+                raw_resp = res_r.json()
+                if isinstance(raw_resp, list):
+                    raw = raw_resp[0] if raw_resp else {}
+                else:
+                    raw = raw_resp.get("data", {})
+                    if isinstance(raw, list):
+                        raw = raw[0] if raw else {}
                 data.update({
                     "per": raw.get("per"),
                     "pbr": raw.get("pbr"),
@@ -234,9 +238,13 @@ def run_update_fundamentals(config: dict):
                 })
 
             if res_a.status_code == 200:
-                raw_a = res_a.json().get("data", {})
-                if isinstance(raw_a, list):
-                    raw_a = raw_a[0] if raw_a else {}
+                raw_a_resp = res_a.json()
+                if isinstance(raw_a_resp, list):
+                    raw_a = raw_a_resp[0] if raw_a_resp else {}
+                else:
+                    raw_a = raw_a_resp.get("data", {})
+                    if isinstance(raw_a, list):
+                        raw_a = raw_a[0] if raw_a else {}
                 data["credit_score"] = raw_a.get("credit_score")
                 data["ai_comment"] = raw_a.get("summary", "")
 
