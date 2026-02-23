@@ -50,7 +50,7 @@ jobs:
 
       - name: 🚀 スクリーニング実行
         env:
-          JQUANTS_REFRESH_TOKEN: ${{ secrets.JQUANTS_API_KEY }}
+          JQUANTS_API_KEY: ${{ secrets.JQUANTS_API_KEY }}
           EDINET_DB_API_KEY: ${{ secrets.EDINET_DB_API_KEY }}
         run: |
           python main.py --mode ${{ github.event.inputs.mode || 'full' }} --config config/settings_runtime.yaml
