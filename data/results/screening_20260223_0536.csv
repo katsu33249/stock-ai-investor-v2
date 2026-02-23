@@ -1,0 +1,173 @@
+﻿ランク,ティッカー,銘柄名,総合スコア,テクニカル,ファンダメンタル,政策スコア,判定,株価,PER,PBR,ROE,信用倍率,政策セクター,コメント
+1,4274.T,細谷火工,75.3,78,45,90,🏛️ 買い（政策恩恵）,1542.0,,,,,defense,🏛️政策主力(defense) / GC形成中 / 出来高急増 / 75日MA上 / ⚠ペナルティ1件
+2,7013.T,IHI,74.0,83,45,90,🏛️ 買い（政策恩恵）,4384.0,,,,,defense,🏛️政策主力(defense) / GC形成中 / 75日MA上
+3,7980.T,重松製作所,73.5,73,45,90,🏛️ 買い（政策恩恵）,918.0,,,,,defense,🏛️政策主力(defense) / GC形成中 / 出来高急増 / 75日MA上 / ⚠ペナルティ1件
+4,8035.T,東京エレクトロン,71.9,83,45,84,🏛️ 買い（政策恩恵）,43960.0,,,,,semiconductor,🏛️政策主力(semiconductor) / GC形成中 / 75日MA上
+5,7721.T,東京計器,71.6,76,45,90,🏛️ 買い（政策恩恵）,8780.0,,,,,defense,🏛️政策主力(defense) / GC形成中 / 75日MA上
+6,6503.T,三菱電機,71.6,76,45,90,🏛️ 買い（政策恩恵）,5850.0,,,,,"defense, green_energy","🏛️政策主力(defense, green_energy) / GC形成中 / 75日MA上"
+7,4275.T,カーリットHD,71.6,76,45,90,🏛️ 買い（政策恩恵）,2669.0,,,,,defense,🏛️政策主力(defense) / GC形成中 / 75日MA上
+8,4063.T,信越化学工業,70.2,78,45,84,🏛️ 買い（政策恩恵）,5750.0,,,,,"semiconductor, rare_earth","🏛️政策主力(semiconductor, rare_earth) / GC形成中 / 75日MA上"
+9,6208.T,石川製作所,69.8,71,45,90,👀 監視・買い検討,2899.0,,,,,defense,🏛️政策主力(defense) / GC形成中 / 75日MA上
+10,6203.T,豊和工業,69.8,71,45,90,👀 監視・買い検討,2000.0,,,,,defense,🏛️政策主力(defense) / GC形成中 / 75日MA上
+11,7011.T,三菱重工業,69.5,70,45,90,👀 監視・買い検討,4965.0,,,,,defense,🏛️政策主力(defense) / GC形成中 / 75日MA上
+12,6952.T,カシオ計算機,68.8,68,45,90,👀 監視・買い検討,1604.5,,,,,defense,🏛️政策主力(defense) / GC形成中 / 75日MA上
+13,4062.T,イビデン,68.8,68,45,90,👀 監視・買い検討,9157.0,,,,,defense,🏛️政策主力(defense) / GC形成中 / 75日MA上
+14,7033.T,マネジメントソリューションズ,68.8,85,36,72,👀 監視・買い検討,1382.0,,,,,startup_growth,政策(startup_growth) / 出来高急増 / 75日MA上 / ⚠ペナルティ1件
+15,7047.T,ポート,68.0,83,36,72,👀 監視・買い検討,2513.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 出来高急増 / 75日MA上 / ⚠ペナルティ1件
+16,5444.T,大和工業,66.4,83,36,76,👀 監視・買い検討,12755.0,,,,,infrastructure,政策(infrastructure) / GC形成中 / 75日MA上
+17,7685.T,BuySell Technologies,66.3,78,36,72,👀 監視・買い検討,6200.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 出来高急増 / 75日MA上 / ⚠ペナルティ1件
+18,9719.T,SCSK,66.1,80,36,78,👀 監視・買い検討,5670.0,,,,,ai_digital,政策(ai_digital) / GC形成中 / 75日MA上
+19,7735.T,SCREENホールディングス,66.0,66,45,84,👀 監視・買い検討,21980.0,,,,,semiconductor,🏛️政策主力(semiconductor) / GC形成中 / 75日MA上
+20,3436.T,SUMCO,65.4,84,36,72,👀 監視・買い検討,1614.0,,,,,rare_earth,政策(rare_earth) / GC形成中 / 75日MA上
+21,7012.T,川崎重工業,65.3,58,45,90,👀 監視・買い検討,17915.0,,,,,defense,🏛️政策主力(defense) / GC形成中 / 75日MA上
+22,9348.T,ispace,65.0,83,36,72,👀 監視・買い検討,601.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 75日MA上
+23,5541.T,大平洋金属,65.0,83,36,72,👀 監視・買い検討,3090.0,,,,,rare_earth,政策(rare_earth) / GC形成中 / 75日MA上
+24,5713.T,住友金属鉱山,65.0,83,36,72,👀 監視・買い検討,10010.0,,,,,rare_earth,政策(rare_earth) / GC形成中 / 75日MA上
+25,6146.T,ディスコ,64.9,63,45,84,👀 監視・買い検討,74060.0,,,,,semiconductor,🏛️政策主力(semiconductor) / GC形成中 / 75日MA上
+26,1811.T,前田建設工業,64.7,78,36,76,👀 監視・買い検討,9180.0,,,,,infrastructure,政策(infrastructure) / GC形成中 / 75日MA上
+27,6857.T,アドバンテスト,64.6,62,45,84,👀 監視・買い検討,25475.0,,,,,semiconductor,🏛️政策主力(semiconductor) / GC形成中 / 75日MA上
+28,6723.T,ルネサスエレクトロニクス,64.6,62,45,84,👀 監視・買い検討,2908.0,,,,,semiconductor,🏛️政策主力(semiconductor) / GC形成中 / 75日MA上
+29,9338.T,INFORICH,64.5,73,36,72,👀 監視・買い検討,4545.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 出来高急増 / 75日MA上 / ⚠ペナルティ1件
+30,4523.T,エーザイ,64.2,61,45,84,👀 監視・買い検討,5114.0,,,,,"semiconductor, medical","🏛️政策主力(semiconductor, medical) / 75日MA上"
+31,1801.T,大成建設,64.0,76,36,76,👀 監視・買い検討,18795.0,,,,,infrastructure,政策(infrastructure) / GC形成中 / 75日MA上
+32,1812.T,鹿島建設,63.6,75,36,76,👀 監視・買い検討,7085.0,,,,,infrastructure,政策(infrastructure) / GC形成中 / 75日MA上
+33,7157.T,ライフネット生命保険,63.6,79,36,72,👀 監視・買い検討,2091.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 75日MA上
+34,4565.T,ネクセラファーマ,63.3,78,36,72,👀 監視・買い検討,897.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 75日MA上
+35,9279.T,ギフトホールディングス,63.3,78,36,72,👀 監視・買い検討,3920.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 75日MA上
+36,5857.T,AREホールディングス,63.3,78,36,72,👀 監視・買い検討,4245.0,,,,,rare_earth,政策(rare_earth) / GC形成中 / 75日MA上
+37,7762.T,シチズン時計,62.8,51,45,90,👀 監視・買い検討,1727.0,,,,,defense,🏛️政策主力(defense) / GC形成中 / 75日MA上
+38,3482.T,ロードスターキャピタル,62.8,68,36,72,👀 監視・買い検討,3560.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 出来高急増 / 75日MA上 / ⚠ペナルティ1件
+39,6196.T,ストライク,62.6,76,36,72,👀 監視・買い検討,4360.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 75日MA上
+40,5254.T,Arent,62.6,76,36,72,👀 監視・買い検討,4040.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 75日MA上
+41,5401.T,日本製鉄,62.6,74,36,74,👀 監視・買い検討,673.9,,,,,green_energy,政策(green_energy) / GC形成中 / 75日MA上
+42,4592.T,サンバイオ,62.5,67,36,72,👀 監視・買い検討,2258.0,,,,,startup_growth,政策(startup_growth) / 出来高急増 / 75日MA上 / ⚠ペナルティ1件
+43,8113.T,ユニ・チャーム,62.2,73,36,74,👀 監視・買い検討,1065.0,,,,,green_energy,政策(green_energy) / GC形成中 / 75日MA上
+44,4483.T,JMDC,62.2,75,36,72,👀 監視・買い検討,3960.0,,,,,startup_growth,政策(startup_growth) / 75日MA上
+45,5253.T,カバー,61.9,74,36,72,👀 監視・買い検討,1690.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 75日MA上
+46,5411.T,JFEホールディングス,61.9,70,36,76,👀 監視・買い検討,2249.5,,,,,infrastructure,政策(infrastructure) / GC形成中 / 75日MA上
+47,6030.T,アドベンチャー,61.8,65,36,72,👀 監視・買い検討,1971.0,,,,,startup_growth,政策(startup_growth) / 出来高急増 / 75日MA上 / ⚠ペナルティ1件
+48,5714.T,DOWAホールディングス,61.5,73,36,72,👀 監視・買い検討,10140.0,,,,,rare_earth,政策(rare_earth) / GC形成中 / 75日MA上
+49,3479.T,ティーケーピー,61.5,73,36,72,👀 監視・買い検討,2370.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 75日MA上
+50,7003.T,三井E&S,61.5,71,36,74,👀 監視・買い検討,8090.0,,,,,"green_energy, rare_earth",政策(green_energy) / GC形成中 / 75日MA上
+51,4042.T,東ソー,61.5,73,36,72,👀 監視・買い検討,2640.0,,,,,rare_earth,政策(rare_earth) / GC形成中 / 75日MA上
+52,3407.T,旭化成,61.2,68,36,76,👀 監視・買い検討,1740.0,,,,,infrastructure,政策(infrastructure) / GC形成中 / 75日MA上
+53,1803.T,清水建設,61.2,68,36,76,👀 監視・買い検討,3452.0,,,,,infrastructure,政策(infrastructure) / GC形成中 / 75日MA上
+54,5802.T,住友電気工業,60.8,71,36,72,👀 監視・買い検討,9748.0,,,,,rare_earth,政策(rare_earth) / GC形成中 / 75日MA上
+55,5706.T,三井金属鉱業,60.8,71,36,72,👀 監視・買い検討,31290.0,,,,,rare_earth,政策(rare_earth) / GC形成中 / 75日MA上
+56,8001.T,伊藤忠商事,60.8,75,36,68,👀 監視・買い検討,2192.5,,,,,finance,GC形成中 / 75日MA上
+57,4004.T,レゾナックHD,60.8,71,36,72,👀 監視・買い検討,11220.0,,,,,rare_earth,政策(rare_earth) / GC形成中 / 75日MA上
+58,8316.T,三井住友FG,60.8,75,36,68,👀 監視・買い検討,5963.0,,,,,finance,GC形成中 / 75日MA上
+59,2986.T,LAホールディングス,60.5,70,36,72,👀 監視・買い検討,9780.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 75日MA上
+60,5020.T,ENEOSホールディングス,60.5,68,36,74,👀 監視・買い検討,1456.0,,,,,green_energy,政策(green_energy) / GC形成中 / 75日MA上
+61,6367.T,ダイキン工業,60.5,68,36,74,👀 監視・買い検討,19730.0,,,,,green_energy,政策(green_energy) / 75日MA上
+62,1861.T,熊谷組,60.1,65,36,76,👀 監視・買い検討,1980.0,,,,,infrastructure,政策(infrastructure) / GC形成中 / 75日MA上
+63,1802.T,大林組,60.1,65,36,76,👀 監視・買い検討,4153.0,,,,,infrastructure,政策(infrastructure) / GC形成中 / 75日MA上
+64,6562.T,ジーニー,60.0,60,36,72,👀 監視・買い検討,1047.0,,,,,startup_growth,政策(startup_growth) / 出来高急増 / ⚠ペナルティ1件
+65,1662.T,石油資源開発,59.8,68,36,72,⏸️ 様子見,2357.0,,,,,rare_earth,政策(rare_earth) / GC形成中 / 75日MA上
+66,4208.T,UBE,59.4,65,36,74,⏸️ 様子見,2802.0,,,,,green_energy,政策(green_energy) / GC形成中 / 75日MA上
+67,9531.T,東京ガス,59.4,65,36,74,⏸️ 様子見,7575.0,,,,,green_energy,政策(green_energy) / GC形成中 / 75日MA上
+68,8411.T,みずほFG,59.1,70,36,68,⏸️ 様子見,7175.0,,,,,finance,GC形成中 / 75日MA上
+69,8306.T,三菱UFJ,59.1,70,36,68,⏸️ 様子見,2942.0,,,,,finance,GC形成中 / 75日MA上
+70,5711.T,三菱マテリアル,58.8,65,36,72,⏸️ 様子見,5237.0,,,,,rare_earth,政策(rare_earth) / GC形成中 / 75日MA上
+71,4183.T,三井化学,58.8,65,36,72,⏸️ 様子見,2313.5,,,,,rare_earth,政策(rare_earth) / GC形成中 / 75日MA上
+72,7164.T,全国保証,58.4,68,36,68,⏸️ 様子見,3166.0,,,,,finance,75日MA上
+73,7203.T,トヨタ自動車,58.4,62,36,74,⏸️ 様子見,3635.0,,,,,green_energy,政策(green_energy) / GC形成中 / 75日MA上
+74,4519.T,中外製薬,58.4,76,36,60,⏸️ 様子見,9930.0,,,,,medical,GC形成中 / 75日MA上
+75,9158.T,シーユーシー,58.4,64,36,72,⏸️ 様子見,938.0,,,,,startup_growth,政策(startup_growth) / 75日MA上
+76,5019.T,出光興産,58.0,63,36,72,⏸️ 様子見,1416.5,,,,,rare_earth,政策(rare_earth) / GC形成中 / 75日MA上
+77,3989.T,シェアリングテクノロジー,57.9,54,36,72,⏸️ 様子見,1138.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 出来高急増 / 75日MA上 / ⚠ペナルティ1件
+78,8750.T,第一生命HD,57.7,66,36,68,⏸️ 様子見,1562.0,,,,,finance,GC形成中 / 75日MA上
+79,4894.T,クオリプス,57.5,53,36,72,⏸️ 様子見,8320.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 出来高急増 / 75日MA上 / ⚠ペナルティ1件
+80,8591.T,オリックス,57.3,65,36,68,⏸️ 様子見,5410.0,,,,,finance,GC形成中 / 75日MA上
+81,4578.T,大塚ホールディングス,57.3,73,36,60,⏸️ 様子見,10620.0,,,,,medical,GC形成中 / 75日MA上
+82,6479.T,ミネベアミツミ,56.9,34,45,90,⏸️ 様子見,3310.0,,,,,defense,🏛️政策主力(defense) / GC形成中 / 75日MA上
+83,5741.T,UACJ,56.5,50,36,72,⏸️ 様子見,2480.0,,,,,rare_earth,政策(rare_earth) / GC形成中 / 出来高急増 / 75日MA上 / ⚠ペナルティ1件
+84,7741.T,HOYA,56.3,70,36,60,⏸️ 様子見,27545.0,,,,,medical,GC形成中 / 75日MA上
+85,7806.T,MTG,56.3,58,36,72,⏸️ 様子見,5270.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 75日MA上
+86,8725.T,MS&AD,55.9,61,36,68,⏸️ 様子見,4320.0,,,,,finance,GC形成中 / 75日MA上
+87,5801.T,古河電気工業,55.6,56,36,72,⏸️ 様子見,23335.0,,,,,rare_earth,政策(rare_earth) / GC形成中 / 75日MA上
+88,4021.T,日産化学,55.6,68,36,60,⏸️ 様子見,6597.0,,,,,medical,GC形成中 / 75日MA上
+89,9984.T,ソフトバンクグループ,55.2,49,36,78,⏸️ 様子見,4329.0,,,,,ai_digital,政策(ai_digital)
+90,4502.T,武田薬品工業,54.9,66,36,60,⏸️ 様子見,5790.0,,,,,medical,GC形成中 / 75日MA上
+91,8789.T,フィンテック グローバル,54.5,53,36,72,⏸️ 様子見,148.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 75日MA上
+92,4704.T,トレンドマイクロ,54.4,38,36,78,⏸️ 様子見,5688.0,,,,,ai_digital,政策(ai_digital) / 出来高急増 / ⚠ペナルティ1件
+93,4563.T,アンジェス,54.2,52,36,72,⏸️ 様子見,63.0,,,,,startup_growth,政策(startup_growth)
+94,6701.T,NEC,53.8,25,45,90,⏸️ 様子見,3916.0,,,,,"defense, ai_digital","🏛️政策主力(defense, ai_digital) / RSI底値圏"
+95,6702.T,富士通,53.8,25,45,90,⏸️ 様子見,3630.0,,,,,defense,🏛️政策主力(defense) / RSI底値圏
+96,5592.T,5592.T,53.8,51,36,72,⏸️ 様子見,2720.0,,,,,startup_growth,政策(startup_growth)
+97,3491.T,GA technologies,53.5,50,36,72,⏸️ 様子見,1635.0,,,,,startup_growth,政策(startup_growth)
+98,9519.T,レノバ,52.4,45,36,74,⏸️ 様子見,721.0,,,,,"green_energy, startup_growth",政策(green_energy)
+99,4449.T,ギフティ,52.0,37,36,72,⏸️ 様子見,982.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏 / 出来高急増 / ⚠ペナルティ1件
+100,4384.T,ラクスル,51.4,44,36,72,⏸️ 様子見,1899.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏 / 75日MA上
+101,7270.T,SUBARU,51.3,18,45,90,⏸️ 様子見,3021.0,,,,,defense,🏛️政策主力(defense) / RSI底値圏
+102,3133.T,海帆,51.2,35,36,72,⏸️ 様子見,374.0,,,,,startup_growth,政策(startup_growth) / 出来高急増 / ⚠ペナルティ1件
+103,4259.T,エクサウィザーズ,50.3,41,36,72,⏸️ 様子見,690.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 75日MA上
+104,4575.T,キャンバス,50.3,41,36,72,⏸️ 様子見,849.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 75日MA上
+105,4165.T,ブレイド,50.2,32,36,72,⏸️ 様子見,503.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏 / 出来高急増 / ⚠ペナルティ1件
+106,4377.T,ワンキャリア,50.2,32,36,72,⏸️ 様子見,1937.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏 / 出来高急増 / ⚠ペナルティ1件
+107,9552.T,クオンツ総研ホールディングス,50.2,32,36,72,⏸️ 様子見,783.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏 / 出来高急増 / ⚠ペナルティ1件
+108,4431.T,スマレジ,50.2,32,36,72,⏸️ 様子見,2588.0,,,,,startup_growth,政策(startup_growth) / 出来高急増 / ⚠ペナルティ1件
+109,6920.T,レーザーテック,49.9,20,45,84,💼 保有継続,30640.0,,,,,semiconductor,🏛️政策主力(semiconductor) / GC形成中
+110,5139.T,オープンワーク,49.6,39,36,72,💼 保有継続,963.0,,,,,startup_growth,政策(startup_growth) / GC形成中
+111,4480.T,メドレー,49.5,30,36,72,💼 保有継続,2045.0,,,,,startup_growth,政策(startup_growth) / 出来高急増 / ⚠ペナルティ1件
+112,5027.T,AnyMind Group,49.5,30,36,72,💼 保有継続,473.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏 / 出来高急増 / ⚠ペナルティ1件
+113,6526.T,ソシオネクスト,49.2,18,45,84,💼 保有継続,1946.5,,,,,semiconductor,🏛️政策主力(semiconductor) / RSI底値圏
+114,3769.T,GMOペイメントゲートウェイ,48.6,30,36,78,💼 保有継続,7444.0,,,,,"ai_digital, finance",政策(ai_digital) / RSI底値圏
+115,5038.T,eWeLL,48.5,27,36,72,💼 保有継続,2218.0,,,,,startup_growth,政策(startup_growth) / 出来高急増 / ⚠ペナルティ1件
+116,5246.T,ELEMENTS,48.1,26,36,72,💼 保有継続,607.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 出来高急増 / ⚠ペナルティ1件
+117,4371.T,コアコンセプト・テクノロジー,47.9,34,36,72,💼 保有継続,1120.0,,,,,startup_growth,政策(startup_growth) / GC形成中
+118,5243.T,note,47.9,34,36,72,💼 保有継続,2160.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 75日MA上
+119,3692.T,FFRIセキュリティ,47.9,34,36,72,💼 保有継続,8870.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 75日MA上
+120,7746.T,岡本硝子,47.9,34,36,72,💼 保有継続,1027.0,,,,,rare_earth,政策(rare_earth) / GC形成中 / 75日MA上
+121,4194.T,ビジョナル,47.8,25,36,72,💼 保有継続,6878.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏 / 出来高急増 / ⚠ペナルティ1件
+122,6758.T,ソニーグループ,47.8,14,45,84,💼 保有継続,3336.0,,,,,semiconductor,🏛️政策主力(semiconductor)
+123,4180.T,Appier Group,47.8,25,36,72,💼 保有継続,700.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏 / 出来高急増 / ⚠ペナルティ1件
+124,9467.T,アルファポリス,47.8,25,36,72,💼 保有継続,1250.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏 / 出来高急増 / ⚠ペナルティ1件
+125,2998.T,クリアル,47.0,23,36,72,💼 保有継続,761.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 出来高急増 / ⚠ペナルティ1件
+126,5842.T,インテグラル,46.8,31,36,72,💼 保有継続,3325.0,,,,,startup_growth,政策(startup_growth) / GC形成中
+127,5707.T,東邦亜鉛,46.8,31,36,72,💼 保有継続,1547.0,,,,,rare_earth,政策(rare_earth) / GC形成中 / 75日MA上
+128,7373.T,アイドマ・ホールディングス,46.8,31,36,72,💼 保有継続,1857.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏
+129,6532.T,ベイカレント,46.8,31,36,72,💼 保有継続,4480.0,,,,,startup_growth,政策(startup_growth)
+130,4307.T,野村総合研究所,46.8,25,36,78,💼 保有継続,3833.0,,,,,ai_digital,政策(ai_digital) / RSI底値圏
+131,7388.T,FPパートナー,46.8,31,36,72,💼 保有継続,2281.0,,,,,startup_growth,政策(startup_growth) / GC形成中 / 75日MA上
+132,4058.T,トヨクモ,46.5,30,36,72,💼 保有継続,1799.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏
+133,7352.T,TWOSTONE&Sons,46.1,29,36,72,💼 保有継続,605.0,,,,,startup_growth,政策(startup_growth)
+134,6200.T,インソース,46.1,29,36,72,💼 保有継続,708.0,,,,,startup_growth,政策(startup_growth)
+135,3697.T,SHIFT,46.1,29,36,72,💼 保有継続,657.1,,,,,startup_growth,政策(startup_growth)
+136,4477.T,BASE,45.3,18,36,72,💼 保有継続,302.0,,,,,startup_growth,政策(startup_growth) / 出来高急増 / ⚠ペナルティ1件
+137,4375.T,セーフィー,45.1,26,36,72,💼 保有継続,836.0,,,,,startup_growth,政策(startup_growth) / GC形成中
+138,6544.T,ジャパンエレベーターサービスHD,45.1,26,36,72,💼 保有継続,1630.5,,,,,startup_growth,政策(startup_growth)
+139,7059.T,コプロ・ホールディングス,45.1,26,36,72,💼 保有継続,998.0,,,,,startup_growth,政策(startup_growth) / GC形成中
+140,4443.T,Sansan,45.1,26,36,72,💼 保有継続,1105.0,,,,,startup_growth,政策(startup_growth)
+141,2980.T,SREホールディングス,45.1,26,36,72,💼 保有継続,2789.0,,,,,startup_growth,政策(startup_growth)
+142,3984.T,ユーザーローカル,44.8,25,36,72,💼 保有継続,1591.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏
+143,6027.T,弁護士ドットコム,44.8,25,36,72,💼 保有継続,2307.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏
+144,3993.T,PKSHA Technology,44.8,25,36,72,💼 保有継続,2758.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏
+145,9432.T,NTT,44.4,18,36,78,💼 保有継続,151.0,,,,,ai_digital,政策(ai_digital) / RSI底値圏
+146,7172.T,ジャパンインベストメントアドバイザー,44.0,23,36,72,💼 保有継続,1963.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏
+147,9166.T,GENDA,44.0,23,36,72,💼 保有継続,611.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏
+148,3994.T,マネーフォワード,44.0,23,36,72,💼 保有継続,3052.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏
+149,4417.T,グローバルセキュリティエキスパート,44.0,23,36,72,💼 保有継続,2760.0,,,,,startup_growth,政策(startup_growth)
+150,7733.T,オリンパス,43.5,25,36,60,💼 保有継続,1480.0,,,,,medical,RSI底値圏 / 出来高急増 / ⚠ペナルティ1件
+151,7095.T,Macbee Planet,43.3,21,36,72,💼 保有継続,1461.0,,,,,startup_growth,政策(startup_growth)
+152,6501.T,日立製作所,43.3,19,36,74,💼 保有継続,4930.0,,,,,green_energy,政策(green_energy) / GC形成中
+153,9168.T,ライズ・コンサルティング・グループ,43.3,21,36,72,💼 保有継続,516.0,,,,,startup_growth,政策(startup_growth)
+154,4051.T,GMOフィナンシャルゲート,43.3,21,36,72,💼 保有継続,5000.0,,,,,startup_growth,政策(startup_growth)
+155,4324.T,電通グループ,43.0,14,36,78,💼 保有継続,2831.0,,,,,ai_digital,政策(ai_digital)
+156,4593.T,ヘリオス,43.0,20,36,72,💼 保有継続,358.0,,,,,startup_growth,政策(startup_growth)
+157,3498.T,霞ヶ関キャピタル,42.6,19,36,72,💼 保有継続,7350.0,,,,,startup_growth,政策(startup_growth)
+158,5032.T,ANYCOLOR,42.6,19,36,72,💼 保有継続,4020.0,,,,,startup_growth,政策(startup_growth)
+159,4393.T,バンク・オブ・イノベーション,42.3,18,36,72,💼 保有継続,5450.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏
+160,9556.T,INTLOOP,42.3,18,36,72,💼 保有継続,3085.0,,,,,startup_growth,政策(startup_growth) / RSI底値圏
+161,4475.T,HENNGE,42.3,18,36,72,💼 保有継続,982.0,,,,,startup_growth,政策(startup_growth)
+162,3496.T,アズーム,42.3,18,36,72,💼 保有継続,4360.0,,,,,startup_growth,政策(startup_growth)
+163,3923.T,ラクス,42.0,17,36,72,💼 保有継続,766.1,,,,,startup_growth,政策(startup_growth)
+164,3915.T,テラスカイ,41.2,15,36,72,💼 保有継続,1892.0,,,,,startup_growth,政策(startup_growth)
+165,4071.T,4071.T,40.9,14,36,72,💼 保有継続,2038.0,,,,,startup_growth,政策(startup_growth)
+166,6869.T,シスメックス,40.9,26,36,60,💼 保有継続,1338.5,,,,,medical,要観察
+167,4413.T,ボードルア,40.9,14,36,72,💼 保有継続,1712.0,,,,,startup_growth,政策(startup_growth)
+168,4543.T,テルモ,40.9,26,36,60,💼 保有継続,1962.0,,,,,medical,要観察
+169,9211.T,エフ・コード,39.8,11,36,72,📉 売り検討,1488.0,,,,,startup_growth,政策(startup_growth)
+170,3182.T,オイシックス・ラ・大地,39.8,11,36,72,📉 売り検討,1385.0,,,,,startup_growth,政策(startup_growth)
+171,9433.T,KDDI,39.8,5,36,78,📉 売り検討,2616.0,,,,,ai_digital,政策(ai_digital)
+172,4419.T,Finatextホールディングス,39.8,11,36,72,📉 売り検討,843.0,,,,,startup_growth,政策(startup_growth)
