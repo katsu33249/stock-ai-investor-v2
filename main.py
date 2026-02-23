@@ -166,14 +166,23 @@ def run_update_fundamentals(config: dict):
 
         try:
             # 企業検索
-            res = requests.get(
-                f"{BASE_URL}/search",
-                params={"q": sec_code},
-                headers=headers,
-                timeout=30
-            )
-            if res.status_code != 200:
-                logger.warning(f"  検索失敗({ticker}): {res.status_code}")
+            # レート制限対策：最大3回リトライ
+            res = None
+            for attempt in range(3):
+                res = requests.get(
+                    f"{BASE_URL}/search",
+                    params={"q": sec_code},
+                    headers=headers,
+                    timeout=30
+                )
+                if res.status_code == 429:
+                    wait = 10 * (attempt + 1)
+                    logger.warning(f"  レート制限({ticker}) {wait}秒待機...")
+                    time.sleep(wait)
+                    continue
+                break
+            if res is None or res.status_code != 200:
+                logger.warning(f"  検索失敗({ticker}): {res.status_code if res else 'None'}")
                 skip += 1
                 continue
 
@@ -234,7 +243,7 @@ def run_update_fundamentals(config: dict):
             cache[ticker] = data
             success += 1
             logger.success(f"  ✅ {ticker} 取得完了")
-            time.sleep(0.5)
+            time.sleep(2.0)
 
         except Exception as e:
             logger.error(f"  エラー({ticker}): {e}")
