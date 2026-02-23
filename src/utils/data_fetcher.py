@@ -216,7 +216,7 @@ class DataFetcher:
             info["margin_ratio"] = margin["margin_ratio"] if margin else None
 
             results[ticker] = info
-            time.sleep(0.3)
+            time.sleep(0.6)
 
         logger.success(f"取得完了: {len(results)}/{total} 銘柄")
         return results
