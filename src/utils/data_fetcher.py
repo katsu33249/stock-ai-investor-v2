@@ -255,30 +255,51 @@ class DataFetcher:
         return results
 
     def get_market_overview(self) -> dict:
-        """市場概況（TOPIX）を取得（V2 API）"""
+        """市場概況（日経225・TOPIX）を取得（V2 API）"""
         overview = {}
+        from_date = (datetime.now() - timedelta(days=7)).strftime("%Y%m%d")
+        to_date = datetime.now().strftime("%Y%m%d")
+
+        # TOPIX
         try:
             res = requests.get(
                 f"{self.BASE_URL}/v2/indices/bars/daily/topix",
                 headers=self._headers(),
-                params={
-                    "from": (datetime.now() - timedelta(days=7)).strftime("%Y%m%d"),
-                    "to": datetime.now().strftime("%Y%m%d"),
-                },
+                params={"from": from_date, "to": to_date},
                 timeout=10
             )
             if res.status_code == 200:
                 data = res.json().get("data", [])
                 if len(data) >= 2:
-                    close      = float(data[-1].get("C", 0))
-                    prev_close = float(data[-2].get("C", 1))
-                    change_pct = (close - prev_close) / prev_close * 100
+                    close = float(data[-1].get("C", 0))
+                    prev  = float(data[-2].get("C", 1))
                     overview["TOPIX"] = {
                         "price": round(close, 2),
-                        "change_pct": round(change_pct, 2),
+                        "change_pct": round((close - prev) / prev * 100, 2),
                     }
         except Exception as e:
-            logger.warning(f"市場概況取得エラー: {e}")
+            logger.warning(f"TOPIX取得エラー: {e}")
+
+        # 日経225
+        try:
+            res2 = requests.get(
+                f"{self.BASE_URL}/v2/indices/bars/daily",
+                headers=self._headers(),
+                params={"code": "0028", "from": from_date, "to": to_date},
+                timeout=10
+            )
+            if res2.status_code == 200:
+                data2 = res2.json().get("data", [])
+                if len(data2) >= 2:
+                    close2 = float(data2[-1].get("C", 0))
+                    prev2  = float(data2[-2].get("C", 1))
+                    overview["日経225"] = {
+                        "price": round(close2, 2),
+                        "change_pct": round((close2 - prev2) / prev2 * 100, 2),
+                    }
+        except Exception as e:
+            logger.warning(f"日経225取得エラー: {e}")
+
         return overview
 
 
