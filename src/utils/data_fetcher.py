@@ -1,11 +1,11 @@
 """
 data_fetcher.py - J-Quants API V2対応版
 
-V2の主な変更点：
-- 認証：リフレッシュトークン → APIキー（x-api-key ヘッダー）
-- エンドポイント：/v1/prices/daily_quotes → /v2/equities/bars/daily
-- カラム名：Close → C, Open → O, High → H, Low → L, Volume → Vo
-- レスポンス：データが "data" キーの配列で返却
+V2変更点：
+- 認証：APIキー（x-api-key ヘッダー）
+- エンドポイント：/v2/equities/bars/daily
+- カラム名：Close→C, Open→O, High→H, Low→L, Volume→Vo
+- 銘柄マスタ：dateパラメータ必須
 """
 
 import requests
@@ -66,24 +66,21 @@ class DataFetcher:
                 return None
 
             df = pd.DataFrame(data)
-            # V2カラム名対応（短縮形）
-            df = df.rename(columns={
-                "Date": "date",
-                "O": "open", "AdjO": "open",
-                "H": "high", "AdjH": "high",
-                "L": "low",  "AdjL": "low",
-                "C": "close","AdjC": "close",
-                "Vo": "volume", "AdjVo": "volume",
-            })
-            # 調整後優先
-            if "AdjC" in pd.DataFrame(data).columns:
-                df = pd.DataFrame(data).rename(columns={
-                    "Date": "date",
-                    "AdjO": "open", "AdjH": "high",
-                    "AdjL": "low",  "AdjC": "close",
-                    "AdjVo": "volume",
-                })
 
+            # V2: 調整後カラムがあれば優先使用
+            raw_cols = pd.DataFrame(data).columns.tolist()
+            if "AdjC" in raw_cols:
+                rename = {
+                    "Date": "date", "AdjO": "open", "AdjH": "high",
+                    "AdjL": "low", "AdjC": "close", "AdjVo": "volume",
+                }
+            else:
+                rename = {
+                    "Date": "date", "O": "open", "H": "high",
+                    "L": "low", "C": "close", "Vo": "volume",
+                }
+
+            df = df.rename(columns=rename)
             df["date"] = pd.to_datetime(df["date"])
             df = df.set_index("date").sort_index()
             df = df[["open", "high", "low", "close", "volume"]].dropna()
@@ -93,18 +90,49 @@ class DataFetcher:
             logger.error(f"株価履歴エラー({ticker}): {e}")
             return None
 
+    def get_company_name(self, ticker: str) -> str:
+        """銘柄名を取得（V2 API・dateパラメータ付き）"""
+        if not self.api_key:
+            return ticker
+        try:
+            code = self._to_code(ticker)
+            today = datetime.now().strftime("%Y%m%d")
+
+            res = requests.get(
+                f"{self.BASE_URL}/v2/equities/master",
+                headers=self._headers(),
+                params={"code": code, "date": today},
+                timeout=10
+            )
+            if res.status_code == 200:
+                items = res.json().get("data", [])
+                if items:
+                    item = items[0]
+                    # 日本語名 → 英語名 の順で取得
+                    name = (
+                        item.get("CompanyName") or
+                        item.get("CompanyNameEnglish") or
+                        item.get("Name") or
+                        ticker
+                    )
+                    return name
+        except Exception as e:
+            logger.warning(f"銘柄名取得エラー({ticker}): {e}")
+        return ticker
+
     def get_stock_info(self, ticker: str) -> Optional[dict]:
         """銘柄情報を取得（V2 API）"""
         if not self.api_key:
             return None
         try:
             code = self._to_code(ticker)
+            today = datetime.now().strftime("%Y%m%d")
 
-            # 銘柄マスタ（V2）
+            # 銘柄マスタ（V2・dateパラメータ付き）
             res = requests.get(
                 f"{self.BASE_URL}/v2/equities/master",
                 headers=self._headers(),
-                params={"code": code},
+                params={"code": code, "date": today},
                 timeout=10
             )
             info = {}
@@ -113,7 +141,12 @@ class DataFetcher:
                 if items:
                     item = items[0]
                     info = {
-                        "name": item.get("CompanyName", ticker),
+                        "name": (
+                            item.get("CompanyName") or
+                            item.get("CompanyNameEnglish") or
+                            item.get("Name") or
+                            ticker
+                        ),
                         "sector": item.get("Sector17CodeName", "不明"),
                         "industry": item.get("Sector33CodeName", "不明"),
                         "market": item.get("MarketCodeName", ""),
@@ -179,13 +212,13 @@ class DataFetcher:
                 return None
 
             latest = data[-1]
-            long_margin = float(latest.get("LongMarginTradeVolume", 0) or 0)
+            long_margin  = float(latest.get("LongMarginTradeVolume",  0) or 0)
             short_margin = float(latest.get("ShortMarginTradeVolume", 0) or 0)
             margin_ratio = round(long_margin / short_margin, 2) if short_margin > 0 else None
 
             return {
                 "margin_ratio": margin_ratio,
-                "long_margin": long_margin,
+                "long_margin":  long_margin,
                 "short_margin": short_margin,
                 "date": latest.get("Date", ""),
             }
@@ -216,7 +249,7 @@ class DataFetcher:
             info["margin_ratio"] = margin["margin_ratio"] if margin else None
 
             results[ticker] = info
-            time.sleep(0.3)
+            time.sleep(0.6)
 
         logger.success(f"取得完了: {len(results)}/{total} 銘柄")
         return results
@@ -237,7 +270,7 @@ class DataFetcher:
             if res.status_code == 200:
                 data = res.json().get("data", [])
                 if len(data) >= 2:
-                    close = float(data[-1].get("C", 0))
+                    close      = float(data[-1].get("C", 0))
                     prev_close = float(data[-2].get("C", 1))
                     change_pct = (close - prev_close) / prev_close * 100
                     overview["TOPIX"] = {
@@ -250,16 +283,11 @@ class DataFetcher:
 
 
 class MarginScorer:
-    """信用倍率スコアリング（2.0新機能）"""
+    """信用倍率スコアリング"""
 
     def score(self, margin_ratio: float) -> tuple:
-        if margin_ratio is None:
-            return 0, "信用倍率データなし"
-        if margin_ratio <= 1.0:
-            return 10, f"🟢 信用倍率良好({margin_ratio:.1f}倍）"
-        elif margin_ratio <= 2.0:
-            return 7, f"🟡 信用倍率普通({margin_ratio:.1f}倍）"
-        elif margin_ratio <= 3.0:
-            return 4, f"🟠 信用倍率やや過熱({margin_ratio:.1f}倍）"
-        else:
-            return -5, f"🔴 信用倍率過熱({margin_ratio:.1f}倍）要注意"
+        if margin_ratio is None:    return 0,  "信用倍率データなし"
+        if margin_ratio <= 1.0:     return 10, f"🟢 信用倍率良好({margin_ratio:.1f}倍）"
+        elif margin_ratio <= 2.0:   return 7,  f"🟡 信用倍率普通({margin_ratio:.1f}倍）"
+        elif margin_ratio <= 3.0:   return 4,  f"🟠 信用倍率やや過熱({margin_ratio:.1f}倍）"
+        else:                        return -5, f"🔴 信用倍率過熱({margin_ratio:.1f}倍）要注意"
