@@ -1,228 +1,314 @@
 """
-scoring_engine.py - Stock AI 2.0 総合スコアリングエンジン
+data_fetcher.py - J-Quants API V2対応版
 
-2.0ウェイト：
-- テクニカル  40%
-- ファンダメンタル 35%
-- 政策スコア  25%
+V2変更点：
+- 認証：APIキー（x-api-key ヘッダー）
+- エンドポイント：/v2/equities/bars/daily
+- カラム名：Close→C, Open→O, High→H, Low→L, Volume→Vo
+- 銘柄マスタ：dateパラメータ必須
 """
 
+import requests
 import pandas as pd
-from datetime import datetime
+import time
+import os
+from datetime import datetime, timedelta
 from loguru import logger
-
-from src.analyzer.technical import TechnicalAnalyzer
-from src.analyzer.fundamental import FundamentalAnalyzer
-from src.screener.policy_screener import PolicyScreener
+from typing import Optional
 
 
-class ScoringEngine:
+class DataFetcher:
 
-    def __init__(self, config: dict = None):
-        cfg = config or {}
-        weights = cfg.get("scoring_weights", {})
-        self.w_technical   = weights.get("technical",   0.40)
-        self.w_fundamental = weights.get("fundamental", 0.35)
-        self.w_policy      = weights.get("policy",      0.25)
+    BASE_URL = "https://api.jquants.com"
 
-        self.technical   = TechnicalAnalyzer(cfg.get("technical", {}))
-        self.fundamental = FundamentalAnalyzer()
-        self.policy      = PolicyScreener()
+    def __init__(self, history_days: int = 180):
+        self.history_days = history_days
+        self.end_date = datetime.now()
+        self.start_date = self.end_date - timedelta(days=history_days)
 
-    def evaluate_stock(self, ticker: str, stock_info: dict) -> dict:
-        price_history = stock_info.get("price_history")
+        self.api_key = os.environ.get("JQUANTS_API_KEY", "")
+        if not self.api_key:
+            logger.error("JQUANTS_API_KEY が設定されていません")
+        else:
+            logger.success("J-Quants API V2 初期化完了")
 
-        tech_result   = self.technical.calculate_score(price_history)
-        fund_result   = self.fundamental.calculate_score(stock_info)
-        policy_result = self.policy.calculate_policy_score(
-            ticker,
-            stock_info.get("sector", "") + " " + stock_info.get("industry", "")
-        )
+    def _headers(self) -> dict:
+        return {"x-api-key": self.api_key}
 
-        tech_score   = tech_result.get("total_score", 50)
-        fund_score   = fund_result.get("total_score", 50)
-        policy_score = policy_result.get("total_score", 0)
+    def _to_code(self, ticker: str) -> str:
+        """7011.T → 70110 形式に変換"""
+        code = ticker.replace(".T", "")
+        return code + "0" if len(code) == 4 else code
 
-        # 加重平均
-        total_score = (
-            tech_score   * self.w_technical +
-            fund_score   * self.w_fundamental +
-            policy_score * self.w_policy
-        )
+    def get_price_history(self, ticker: str) -> Optional[pd.DataFrame]:
+        """株価履歴を取得（V2 API）"""
+        if not self.api_key:
+            return None
+        try:
+            code = self._to_code(ticker)
+            res = requests.get(
+                f"{self.BASE_URL}/v2/equities/bars/daily",
+                headers=self._headers(),
+                params={
+                    "code": code,
+                    "from": self.start_date.strftime("%Y%m%d"),
+                    "to": self.end_date.strftime("%Y%m%d"),
+                },
+                timeout=15
+            )
+            if res.status_code != 200:
+                logger.warning(f"株価取得失敗({ticker}): {res.status_code} {res.text[:100]}")
+                return None
 
-        # ===== 2.0ペナルティ =====
-        penalties = []
+            data = res.json().get("data", [])
+            if not data:
+                logger.warning(f"株価データなし: {ticker}")
+                return None
 
-        margin_ratio = stock_info.get("margin_ratio")
-        if margin_ratio is not None and margin_ratio > 3.0:
-            total_score -= 5
-            penalties.append(f"信用倍率過熱({margin_ratio:.1f}倍) -5点")
+            df = pd.DataFrame(data)
 
-        margin_bonus = self._score_margin(margin_ratio)
-        total_score += margin_bonus
-        if margin_bonus > 0:
-            penalties.append(f"信用倍率良好 +{margin_bonus}点")
+            # V2: 調整後カラムがあれば優先使用
+            raw_cols = pd.DataFrame(data).columns.tolist()
+            if "AdjC" in raw_cols:
+                rename = {
+                    "Date": "date", "AdjO": "open", "AdjH": "high",
+                    "AdjL": "low", "AdjC": "close", "AdjVo": "volume",
+                }
+            else:
+                rename = {
+                    "Date": "date", "O": "open", "H": "high",
+                    "L": "low", "C": "close", "Vo": "volume",
+                }
 
-        # EDINET DBからの財務データを優先的に使用
-        # fund_resultのraw_dataにEDINET値が格納されている
-        edinet_data = fund_result.get("raw_data", {})
+            df = df.rename(columns=rename)
+            df["date"] = pd.to_datetime(df["date"])
+            df = df.set_index("date").sort_index()
+            df = df[["open", "high", "low", "close", "volume"]].dropna()
+            return df
 
-        def get_val(key):
-            """EDINET DB → stock_info の優先順で値を取得"""
-            if edinet_data and edinet_data.get(key) is not None:
-                return edinet_data[key]
-            return stock_info.get(key)
+        except Exception as e:
+            logger.error(f"株価履歴エラー({ticker}): {e}")
+            return None
 
-        earnings_growth = get_val("earnings_growth")
-        if earnings_growth is not None and earnings_growth < 0:
-            total_score -= 5
-            penalties.append(f"EPS前年比マイナス -5点")
+    def get_company_name(self, ticker: str) -> str:
+        """銘柄名を取得（V2 API・dateパラメータ付き）"""
+        if not self.api_key:
+            return ticker
+        try:
+            code = self._to_code(ticker)
+            today = datetime.now().strftime("%Y%m%d")
 
-        operating_cf = get_val("operating_cf")
-        if operating_cf is not None and operating_cf < 0:
-            total_score -= 5
-            penalties.append("営業CF赤字 -5点")
+            res = requests.get(
+                f"{self.BASE_URL}/v2/equities/master",
+                headers=self._headers(),
+                params={"code": code, "date": today},
+                timeout=10
+            )
+            if res.status_code == 200:
+                items = res.json().get("data", [])
+                if items:
+                    item = items[0]
+                    # 日本語名 → 英語名 の順で取得
+                    name = (
+                        item.get("CompanyName") or
+                        item.get("CompanyNameEnglish") or
+                        item.get("Name") or
+                        ticker
+                    )
+                    return name
+        except Exception as e:
+            logger.warning(f"銘柄名取得エラー({ticker}): {e}")
+        return ticker
 
-        debt_to_equity = get_val("debt_to_equity")
-        if debt_to_equity is not None and debt_to_equity > 200:
-            total_score -= 5
-            penalties.append(f"高負債(D/E:{debt_to_equity:.0f}%) -5点")
+    def get_stock_info(self, ticker: str) -> Optional[dict]:
+        """銘柄情報を取得（V2 API）"""
+        if not self.api_key:
+            return None
+        try:
+            code = self._to_code(ticker)
+            today = datetime.now().strftime("%Y%m%d")
 
-        is_policy = policy_score >= 50
-        profit_margin = get_val("profit_margin")
-        if is_policy and profit_margin is not None and profit_margin < 0:
-            total_score -= 10
-            penalties.append("政策銘柄・赤字企業 -10点")
+            # 銘柄マスタ（V2・dateパラメータ付き）
+            res = requests.get(
+                f"{self.BASE_URL}/v2/equities/master",
+                headers=self._headers(),
+                params={"code": code, "date": today},
+                timeout=10
+            )
+            info = {}
+            if res.status_code == 200:
+                items = res.json().get("data", [])
+                if items:
+                    item = items[0]
+                    info = {
+                        "name": (
+                            item.get("CompanyName") or
+                            item.get("CompanyNameEnglish") or
+                            item.get("Name") or
+                            ticker
+                        ),
+                        "sector": item.get("Sector17CodeName", "不明"),
+                        "industry": item.get("Sector33CodeName", "不明"),
+                        "market": item.get("MarketCodeName", ""),
+                    }
 
-        total_score = round(min(100, max(0, total_score)), 1)
-        action = self._determine_action(total_score, tech_result, policy_score)
-        comment = self._generate_comment(
-            total_score, tech_score, fund_score, policy_score,
-            tech_result, fund_result, policy_result, stock_info, penalties
-        )
+            # 株価履歴取得
+            history = self.get_price_history(ticker)
+            current_price = 0
+            volume = 0
+            avg_volume = 0
+            week52_high = 0
+            week52_low = 0
+            if history is not None and not history.empty:
+                current_price = float(history["close"].iloc[-1])
+                volume = float(history["volume"].iloc[-1])
+                avg_volume = float(history["volume"].mean())
+                week52_high = float(history["high"].max())
+                week52_low = float(history["low"].min())
 
-        # PER/PBR/ROEはEDINET DB優先
-        per = get_val("per")
-        pbr = get_val("pbr")
-        roe = get_val("roe")
-        dividend_yield = get_val("dividend_yield")
+            return {
+                "ticker": ticker,
+                "name": info.get("name", ticker),
+                "sector": info.get("sector", "不明"),
+                "industry": info.get("industry", "不明"),
+                "current_price": current_price,
+                "market_cap": 0,
+                "volume": volume,
+                "avg_volume": avg_volume,
+                "per": None, "pbr": None, "psr": None,
+                "ev_ebitda": None, "roe": None, "roa": None,
+                "profit_margin": None, "operating_margin": None,
+                "revenue_growth": None, "earnings_growth": None,
+                "dividend_yield": None, "debt_to_equity": None,
+                "current_ratio": None,
+                "week52_high": week52_high,
+                "week52_low": week52_low,
+            }
 
-        return {
-            "ticker": ticker,
-            "name": stock_info.get("name", ticker),
-            "timestamp": datetime.now().isoformat(),
-            "total_score": total_score,
-            "technical_score": tech_score,
-            "fundamental_score": fund_score,
-            "policy_score": policy_score,
-            "action": action,
-            "action_emoji": self._action_emoji(action),
-            "comment": comment,
-            "penalties": penalties,
-            "current_price": stock_info.get("current_price", 0),
-            "market_cap_B": round(stock_info.get("market_cap", 0) / 1e8, 0),
-            "per": per,
-            "pbr": pbr,
-            "roe": roe,
-            "dividend_yield": dividend_yield,
-            "margin_ratio": margin_ratio,
-            "sector": stock_info.get("sector", ""),
-            "policy_sectors": policy_result.get("details", {}).get("matching_sectors", []),
-            "ai_comment": fund_result.get("ai_comment", ""),
-            "data_source": fund_result.get("data_source", ""),
-            "score_details": {
-                "technical": tech_result.get("details", {}),
-                "fundamental": fund_result.get("details", {}),
-                "policy": policy_result.get("details", {}),
-            },
-            "signals": tech_result.get("signals", {}),
-        }
+        except Exception as e:
+            logger.error(f"銘柄情報エラー({ticker}): {e}")
+            return None
 
-    def _score_margin(self, margin_ratio) -> int:
-        if margin_ratio is None:
-            return 0
-        if margin_ratio <= 1.0:
-            return 3
-        return 0
+    def get_margin_trading(self, ticker: str) -> Optional[dict]:
+        """信用取引週末残高を取得（V2 API・Standardプラン）"""
+        if not self.api_key:
+            return None
+        try:
+            code = self._to_code(ticker)
+            from_date = (datetime.now() - timedelta(days=30)).strftime("%Y%m%d")
+            to_date = datetime.now().strftime("%Y%m%d")
 
-    def evaluate_multiple(self, stocks_data: dict) -> list:
-        results = []
-        total = len(stocks_data)
-        for i, (ticker, stock_info) in enumerate(stocks_data.items(), 1):
-            logger.info(f"スコアリング ({i}/{total}): {ticker}")
-            try:
-                result = self.evaluate_stock(ticker, stock_info)
-                results.append(result)
-            except Exception as e:
-                logger.error(f"スコアリングエラー ({ticker}): {e}")
+            res = requests.get(
+                f"{self.BASE_URL}/v2/markets/margin-interest",
+                headers=self._headers(),
+                params={"code": code, "from": from_date, "to": to_date},
+                timeout=10
+            )
+            if res.status_code != 200:
+                return None
 
-        results.sort(key=lambda x: x["total_score"], reverse=True)
-        for rank, result in enumerate(results, 1):
-            result["rank"] = rank
+            data = res.json().get("data", [])
+            if not data:
+                return None
+
+            latest = data[-1]
+            long_margin  = float(latest.get("LongMarginTradeVolume",  0) or 0)
+            short_margin = float(latest.get("ShortMarginTradeVolume", 0) or 0)
+            margin_ratio = round(long_margin / short_margin, 2) if short_margin > 0 else None
+
+            return {
+                "margin_ratio": margin_ratio,
+                "long_margin":  long_margin,
+                "short_margin": short_margin,
+                "date": latest.get("Date", ""),
+            }
+
+        except Exception as e:
+            logger.warning(f"信用残取得エラー({ticker}): {e}")
+            return None
+
+    def get_multiple_stocks(self, tickers: list) -> dict:
+        """複数銘柄を一括取得"""
+        results = {}
+        total = len(tickers)
+
+        for i, ticker in enumerate(tickers, 1):
+            logger.info(f"データ取得中... ({i}/{total}): {ticker}")
+
+            info = self.get_stock_info(ticker)
+            if not info:
+                continue
+
+            history = self.get_price_history(ticker)
+            if history is None:
+                continue
+
+            info["price_history"] = history
+
+            margin = self.get_margin_trading(ticker)
+            info["margin_ratio"] = margin["margin_ratio"] if margin else None
+
+            results[ticker] = info
+            time.sleep(0.6)
+
+        logger.success(f"取得完了: {len(results)}/{total} 銘柄")
         return results
 
-    def to_dataframe(self, results: list) -> pd.DataFrame:
-        rows = []
-        for r in results:
-            rows.append({
-                "ランク": r.get("rank", "-"),
-                "ティッカー": r["ticker"],
-                "銘柄名": r["name"],
-                "総合スコア": r["total_score"],
-                "テクニカル": r["technical_score"],
-                "ファンダメンタル": r["fundamental_score"],
-                "政策スコア": r["policy_score"],
-                "判定": f"{r['action_emoji']} {r['action']}",
-                "株価": r.get("current_price", "-"),
-                "PER": r.get("per", "-"),
-                "PBR": r.get("pbr", "-"),
-                "ROE": r.get("roe", "-"),
-                "信用倍率": r.get("margin_ratio", "-"),
-                "政策セクター": ", ".join(r.get("policy_sectors", [])),
-                "コメント": r.get("comment", ""),
-            })
-        return pd.DataFrame(rows)
+    def get_market_overview(self) -> dict:
+        """市場概況（日経225・TOPIX）を取得（V2 API）"""
+        overview = {}
+        from_date = (datetime.now() - timedelta(days=7)).strftime("%Y%m%d")
+        to_date = datetime.now().strftime("%Y%m%d")
 
-    def _determine_action(self, total_score, tech_result, policy_score):
-        signals = tech_result.get("signals", {})
-        if total_score >= 80:   return "強気買い"
-        elif total_score >= 70:
-            if signals.get("rsi_signal") == "oversold": return "買い（RSI底値圏）"
-            elif policy_score >= 70:                     return "買い（政策恩恵）"
-            return "買い"
-        elif total_score >= 60: return "監視・買い検討"
-        elif total_score >= 50: return "様子見"
-        elif total_score >= 40: return "保有継続"
-        else:                    return "売り検討"
+        # TOPIX
+        try:
+            res = requests.get(
+                f"{self.BASE_URL}/v2/indices/bars/daily/topix",
+                headers=self._headers(),
+                params={"from": from_date, "to": to_date},
+                timeout=10
+            )
+            if res.status_code == 200:
+                data = res.json().get("data", [])
+                if len(data) >= 2:
+                    close = float(data[-1].get("C", 0))
+                    prev  = float(data[-2].get("C", 1))
+                    overview["TOPIX"] = {
+                        "price": round(close, 2),
+                        "change_pct": round((close - prev) / prev * 100, 2),
+                    }
+        except Exception as e:
+            logger.warning(f"TOPIX取得エラー: {e}")
 
-    def _action_emoji(self, action):
-        return {
-            "強気買い": "🔥", "買い": "📈",
-            "買い（RSI底値圏）": "📈", "買い（政策恩恵）": "🏛️",
-            "監視・買い検討": "👀", "様子見": "⏸️",
-            "保有継続": "💼", "売り検討": "📉",
-        }.get(action, "❓")
+        # 日経225
+        try:
+            res2 = requests.get(
+                f"{self.BASE_URL}/v2/indices/bars/daily",
+                headers=self._headers(),
+                params={"code": "0028", "from": from_date, "to": to_date},
+                timeout=10
+            )
+            if res2.status_code == 200:
+                data2 = res2.json().get("data", [])
+                if len(data2) >= 2:
+                    close2 = float(data2[-1].get("C", 0))
+                    prev2  = float(data2[-2].get("C", 1))
+                    overview["日経225"] = {
+                        "price": round(close2, 2),
+                        "change_pct": round((close2 - prev2) / prev2 * 100, 2),
+                    }
+        except Exception as e:
+            logger.warning(f"日経225取得エラー: {e}")
 
-    def _generate_comment(self, total, tech, fund, policy,
-                          tech_result, fund_result, policy_result, info, penalties):
-        comments = []
-        if policy >= 70:
-            sectors = policy_result.get("details", {}).get("matching_sectors", [])
-            if sectors:
-                comments.append(f"政策重点（{', '.join(sectors[:2])}）")
-        signals = tech_result.get("signals", {})
-        if signals.get("rsi_signal") == "oversold": comments.append("RSI底値圏")
-        elif signals.get("trend") == "uptrend":      comments.append("GC形成中")
-        if signals.get("volume_increasing"):         comments.append("出来高急増")
-        if signals.get("above_sma75"):               comments.append("75日MA上")
-        if fund_result.get("valuation_summary") == "割安": comments.append("割安")
-        margin_ratio = info.get("margin_ratio")
-        if margin_ratio and margin_ratio <= 1.0:
-            comments.append(f"信用良好({margin_ratio:.1f}倍)")
-        elif margin_ratio and margin_ratio > 3.0:
-            comments.append(f"⚠信用過熱({margin_ratio:.1f}倍)")
-        if penalties:
-            comments.append(f"⚠ペナルティ{len(penalties)}件")
-        if not comments:
-            comments.append("総合良好" if total >= 60 else "要観察")
-        return " / ".join(comments)
+        return overview
+
+
+class MarginScorer:
+    """信用倍率スコアリング"""
+
+    def score(self, margin_ratio: float) -> tuple:
+        if margin_ratio is None:    return 0,  "信用倍率データなし"
+        if margin_ratio <= 1.0:     return 10, f"🟢 信用倍率良好({margin_ratio:.1f}倍）"
+        elif margin_ratio <= 2.0:   return 7,  f"🟡 信用倍率普通({margin_ratio:.1f}倍）"
+        elif margin_ratio <= 3.0:   return 4,  f"🟠 信用倍率やや過熱({margin_ratio:.1f}倍）"
+        else:                        return -5, f"🔴 信用倍率過熱({margin_ratio:.1f}倍）要注意"
