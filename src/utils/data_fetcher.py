@@ -285,24 +285,21 @@ class DataFetcher:
             from_date = (datetime.now() - timedelta(days=60)).strftime("%Y%m%d")
             to_date = datetime.now().strftime("%Y%m%d")
 
-            # 正しいV2エンドポイント
+            # 信用残高はV1エンドポイントを使用（V2未対応）
             res = requests.get(
-                f"{self.BASE_URL}/v2/markets/weekly_margin_interest",
+                "https://api.jquants.com/v1/markets/weekly_margin_interest",
                 headers=self._headers(),
                 params={"code": code, "from": from_date, "to": to_date},
                 timeout=10
             )
             if res.status_code != 200:
-                logger.warning(f"信用残取得失敗({ticker}): {res.status_code} {res.text[:100]}")
+                logger.warning(f"信用残取得失敗({ticker}): {res.status_code}")
                 return None
 
             raw = res.json()
             if isinstance(raw, list):
                 data = raw
             else:
-                # レスポンスキーを確認
-                keys = list(raw.keys()) if isinstance(raw, dict) else []
-                logger.debug(f"信用残レスポンスキー({ticker}): {keys}")
                 data = raw.get("weekly_margin_interest", raw.get("data", []))
 
             if not data:
