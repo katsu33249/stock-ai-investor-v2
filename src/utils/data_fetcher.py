@@ -293,13 +293,16 @@ class DataFetcher:
                 timeout=10
             )
             if res.status_code != 200:
-                logger.debug(f"信用残取得失敗({ticker}): {res.status_code}")
+                logger.warning(f"信用残取得失敗({ticker}): {res.status_code} {res.text[:100]}")
                 return None
 
             raw = res.json()
             if isinstance(raw, list):
                 data = raw
             else:
+                # レスポンスキーを確認
+                keys = list(raw.keys()) if isinstance(raw, dict) else []
+                logger.debug(f"信用残レスポンスキー({ticker}): {keys}")
                 data = raw.get("weekly_margin_interest", raw.get("data", []))
 
             if not data:
