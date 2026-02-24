@@ -277,17 +277,21 @@ class DataFetcher:
             return None
 
     def get_margin_trading(self, ticker: str) -> Optional[dict]:
-        """信用取引週末残高を取得（V2 API・Standardプラン）"""
+        """信用取引週末残高を取得（V2 API・Standardプラン）
+
+        エンドポイント: /v2/markets/margin-interest
+        認証: x-api-key（V2標準）
+        フィールド: LongVol（買残）/ ShrtVol（売残）
+        """
         if not self.api_key:
             return None
         try:
             code = self._to_code(ticker)
-            from_date = (datetime.now() - timedelta(days=60)).strftime("%Y%m%d")
-            to_date = datetime.now().strftime("%Y%m%d")
+            from_date = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
+            to_date = datetime.now().strftime("%Y-%m-%d")
 
-            # 信用残高はV1エンドポイントを使用（V2未対応）
             res = requests.get(
-                "https://api.jquants.com/v1/markets/weekly_margin_interest",
+                f"{self.BASE_URL}/v2/markets/margin-interest",
                 headers=self._headers(),
                 params={"code": code, "from": from_date, "to": to_date},
                 timeout=10
@@ -296,25 +300,19 @@ class DataFetcher:
                 logger.warning(f"信用残取得失敗({ticker}): {res.status_code}")
                 return None
 
-            raw = res.json()
-            if isinstance(raw, list):
-                data = raw
-            else:
-                data = raw.get("weekly_margin_interest", raw.get("data", []))
-
+            data = res.json().get("data", [])
             if not data:
                 return None
 
             latest = data[-1]
-            # V2フィールド名
-            long_margin  = float(latest.get("LongMarginTradeVolume",  0) or 0)
-            short_margin = float(latest.get("ShortMarginTradeVolume", 0) or 0)
-            margin_ratio = round(long_margin / short_margin, 2) if short_margin > 0 else None
+            long_vol  = float(latest.get("LongVol",  0) or 0)
+            shrt_vol  = float(latest.get("ShrtVol",  0) or 0)
+            margin_ratio = round(long_vol / shrt_vol, 2) if shrt_vol > 0 else None
 
             return {
                 "margin_ratio": margin_ratio,
-                "long_margin":  long_margin,
-                "short_margin": short_margin,
+                "long_margin":  long_vol,
+                "short_margin": shrt_vol,
                 "date": latest.get("Date", ""),
             }
 
