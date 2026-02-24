@@ -282,23 +282,31 @@ class DataFetcher:
             return None
         try:
             code = self._to_code(ticker)
-            from_date = (datetime.now() - timedelta(days=30)).strftime("%Y%m%d")
+            from_date = (datetime.now() - timedelta(days=60)).strftime("%Y%m%d")
             to_date = datetime.now().strftime("%Y%m%d")
 
+            # 正しいV2エンドポイント
             res = requests.get(
-                f"{self.BASE_URL}/v2/markets/margin-interest",
+                f"{self.BASE_URL}/v2/markets/weekly_margin_interest",
                 headers=self._headers(),
                 params={"code": code, "from": from_date, "to": to_date},
                 timeout=10
             )
             if res.status_code != 200:
+                logger.debug(f"信用残取得失敗({ticker}): {res.status_code}")
                 return None
 
-            data = res.json().get("data", [])
+            raw = res.json()
+            if isinstance(raw, list):
+                data = raw
+            else:
+                data = raw.get("weekly_margin_interest", raw.get("data", []))
+
             if not data:
                 return None
 
             latest = data[-1]
+            # V2フィールド名
             long_margin  = float(latest.get("LongMarginTradeVolume",  0) or 0)
             short_margin = float(latest.get("ShortMarginTradeVolume", 0) or 0)
             margin_ratio = round(long_margin / short_margin, 2) if short_margin > 0 else None
