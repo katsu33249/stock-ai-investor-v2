@@ -2,7 +2,7 @@
 discord_bot.py - Discord通知モジュール（Stock AI 2.0対応版）
 
 通知構成：
-① 市場概況（日経225・TOPIX）
+① 市場概況（日経平均・TOPIX）
 ② 🔥 強気買いシグナル（TOP5）
 ③ 📈 買いシグナル（次の5件）
 ④ 🏆 総合TOP10ランキング
@@ -31,8 +31,10 @@ class DiscordNotifier:
 
         # ===== ① 市場概況 =====
         market_lines = [f"📊 **市場概況 - {today}**"]
+        NAME_MAP = {"topix": "TOPIX", "nikkei": "日経平均"}
         if market_overview:
             for name, data in market_overview.items():
+                name = NAME_MAP.get(name, name)
                 change = data.get("change_pct", 0)
                 arrow = "📈" if change > 0 else "📉"
                 price = data.get("price", 0)
