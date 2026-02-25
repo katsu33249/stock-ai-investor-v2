@@ -144,11 +144,44 @@ def get_sec_to_edinet_map(headers: dict) -> dict:
         return {}
 
 
+JQUANTS_BASE_URL = "https://api.jquants.com/v2"
+
+def _get_bps_from_jquants(ticker: str) -> float | None:
+    """J-Quants fins/statements から最新のBPS（1株純資産）を取得"""
+    api_key = os.environ.get("JQUANTS_API_KEY", "")
+    if not api_key:
+        return None
+    try:
+        code = ticker.replace(".T", "")
+        res = requests.get(
+            f"{JQUANTS_BASE_URL}/fins/statements",
+            headers={"x-api-key": api_key},
+            params={"code": code},
+            timeout=30
+        )
+        if res.status_code != 200:
+            return None
+        statements = res.json().get("statements", [])
+        # TypeOfCurrentPeriod == "FY"（通期）の最新データを使用
+        fy_records = [s for s in statements if s.get("TypeOfCurrentPeriod") == "FY"]
+        if not fy_records:
+            fy_records = statements  # FYがなければ全データから
+        if not fy_records:
+            return None
+        latest = fy_records[-1]
+        bps_str = latest.get("BookValuePerShare", "")
+        return float(bps_str) if bps_str else None
+    except Exception as e:
+        logger.debug(f"BPS取得エラー({ticker}): {e}")
+        return None
+
+
 def fetch_fundamental(ticker: str, edinet_code: str, headers: dict) -> dict:
     """
     1銘柄の財務データを取得
-    - /ratios  → PER/PBR/ROE等
-    - /analysis → AIスコア・コメント
+    - /ratios  → PER/ROE等（EDINET DB）
+    - /analysis → AIスコア・コメント（EDINET DB）
+    - J-Quants fins/statements → BPS（PBR計算用）
     """
     try:
         res_r = requests.get(
@@ -176,6 +209,11 @@ def fetch_fundamental(ticker: str, edinet_code: str, headers: dict) -> dict:
         # ratios（PER/PBR/ROE等）
         if res_r.status_code == 200:
             raw = normalize(safe_json(res_r))
+            # PBRフィールド確認（初回のみ）
+            if "pbr_debug_done" not in globals():
+                globals()["pbr_debug_done"] = True
+                all_keys = list(raw.keys())
+                logger.debug(f"ratiosフィールド一覧: {all_keys}")
             result.update({
                 "per":              _safe_float(raw.get("per")),
                 "pbr":              _safe_float(raw.get("pbr")),
@@ -201,6 +239,14 @@ def fetch_fundamental(ticker: str, edinet_code: str, headers: dict) -> dict:
             result["ai_comment"]   = raw_a.get("summary", "")
         else:
             logger.warning(f"  analysis取得失敗({ticker}): {res_a.status_code}")
+
+        # BPS（J-Quants fins/statements → PBR計算用）
+        bps = _get_bps_from_jquants(ticker)
+        if bps and bps > 0:
+            result["bps"] = bps
+            logger.debug(f"  BPS取得({ticker}): {bps:.2f}")
+        else:
+            result["bps"] = None
 
         return result
 
