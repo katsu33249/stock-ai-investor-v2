@@ -395,7 +395,7 @@ class DataFetcher:
         return results
 
     def get_market_overview(self) -> dict:
-        """市場概況（日経225・TOPIX）を取得（V2 API）"""
+        """市場概況（日経平均・TOPIX）を取得"""
         overview = {}
         from_date = (datetime.now() - timedelta(days=7)).strftime("%Y%m%d")
         to_date = datetime.now().strftime("%Y%m%d")
@@ -420,7 +420,7 @@ class DataFetcher:
         except Exception as e:
             logger.warning(f"TOPIX取得エラー: {e}")
 
-        # 日経225
+        # 日経平均
         try:
             res2 = requests.get(
                 f"{self.BASE_URL}/v2/indices/bars/daily",
@@ -433,12 +433,12 @@ class DataFetcher:
                 if len(data2) >= 2:
                     close2 = float(data2[-1].get("C", 0))
                     prev2  = float(data2[-2].get("C", 1))
-                    overview["日経225"] = {
+                    overview["日経平均"] = {
                         "price": round(close2, 2),
                         "change_pct": round((close2 - prev2) / prev2 * 100, 2),
                     }
         except Exception as e:
-            logger.warning(f"日経225取得エラー: {e}")
+            logger.warning(f"日経平均取得エラー: {e}")
 
         return overview
 
