@@ -217,6 +217,15 @@ class FundamentalAnalyzer:
         details["per"] = {"score": per_score, "note": per_note}
 
         pbr_score, pbr_note = self.score_pbr(get_val("pbr"))
+        # PBRがない場合はcurrent_price ÷ BPSで計算
+        if get_val("pbr") is None and edinet_data:
+            bps = edinet_data.get("bps")
+            price = stock_info.get("current_price", 0)
+            if bps and bps > 0 and price > 0:
+                computed_pbr = round(price / bps, 2)
+                pbr_score, pbr_note = self.score_pbr(computed_pbr)
+                if edinet_data:
+                    edinet_data["pbr"] = computed_pbr  # rawにも反映
         score += pbr_score
         details["pbr"] = {"score": pbr_score, "note": pbr_note}
 
