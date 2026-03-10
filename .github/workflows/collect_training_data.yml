@@ -33,13 +33,6 @@ jobs:
           mkdir -p data/logs
           mkdir -p data/cache
 
-      - name: 🔄 EDINETキャッシュ取得（最新版）
-        uses: actions/checkout@v4
-        with:
-          sparse-checkout: |
-            data/cache/fundamental_cache.json
-          sparse-checkout-cone-mode: false
-
       - name: 🚀 学習データ収集実行
         env:
           JQUANTS_API_KEY: ${{ secrets.JQUANTS_API_KEY }}
