@@ -78,8 +78,8 @@ def get_tickers() -> list:
     with open(path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
     tickers = set()
-    for theme in config.get("themes", {}).values():
-        for t in theme.get("tickers", []):
+    for sector in config.get("policy_sectors", {}).values():
+        for t in sector.get("ticker_list", []):
             tickers.add(t)
     return sorted(list(tickers))
 
@@ -150,7 +150,7 @@ def fetch_topix(start_date: str, end_date: str) -> pd.DataFrame:
 
     while True:
         res = requests.get(
-            f"{JQUANTS_BASE_URL}/indices/topix",
+            f"{JQUANTS_BASE_URL}/indices/bars/daily/topix",
             headers=_headers(),
             params=params,
             timeout=30
@@ -160,7 +160,7 @@ def fetch_topix(start_date: str, end_date: str) -> pd.DataFrame:
             return pd.DataFrame()
 
         body = res.json()
-        data = body.get("topix", body.get("data", []))
+        data = body.get("data", [])
         all_data.extend(data)
 
         pagination_key = body.get("pagination_key")
