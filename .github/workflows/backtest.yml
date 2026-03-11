@@ -1,0 +1,106 @@
+name: 📈 ML PHASE 3 - バックテスト
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_note:
+        description: '実行メモ（任意）'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python セットアップ
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 依存ライブラリをインストール
+        run: |
+          pip install \
+            lightgbm \
+            scikit-learn \
+            pandas \
+            numpy \
+            loguru \
+            requests
+
+      - name: PHASE 1 Artifact（学習データ）をダウンロード
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: collect_training_data.yml
+          name_is_regexp: true
+          name: training-data-.*
+          path: data/ml/
+          search_artifacts: true
+
+      - name: PHASE 2 Artifact（学習済みモデル）をダウンロード
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: train_model.yml
+          name_is_regexp: true
+          name: ml-model-.*
+          path: data/ml/
+          search_artifacts: true
+
+      - name: ファイル整理（サブフォルダから移動）
+        run: |
+          find data/ml/ -name "training_data.csv" -exec mv {} data/ml/ \;
+          find data/ml/ -name "model.pkl" -exec mv {} data/ml/ \;
+          find data/ml/ -name "model_info.json" -exec mv {} data/ml/ \;
+          ls -lh data/ml/
+
+      - name: 📈 バックテスト実行
+        run: |
+          python ml/backtest.py
+
+      - name: バックテスト結果を確認
+        run: |
+          python3 -c "
+          import json
+          with open('data/ml/backtest_result.json', encoding='utf-8') as f:
+              d = json.load(f)
+          r = d['result']
+          print(f'年率リターン: {float(r[\"annual_return\"]):.1%}')
+          print(f'最大DD:       {float(r[\"max_drawdown\"]):.1%}')
+          print(f'シャープ:     {r[\"sharpe_ratio\"]}')
+          print(f'勝率:         {float(r[\"win_rate\"]):.1%}')
+          print(f'判定:         {r[\"判定\"]}')
+          "
+
+      - name: 結果をArtifactに保存
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-result-${{ github.run_number }}
+          path: |
+            data/ml/backtest_result.json
+            data/ml/backtest_equity.csv
+          retention-days: 90
+
+      - name: backtest_result.json をリポジトリにコミット
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "🤖 ML PHASE3 バックテスト完了 - Run#${{ github.run_number }}"
+          file_pattern: data/ml/backtest_result.json
+          commit_user_name: Stock AI Bot
+          commit_user_email: bot@github.actions
+
+      - name: Discord にバックテスト結果を通知
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          python ml/notify_phase3.py ${{ github.run_number }}
