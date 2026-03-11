@@ -1,0 +1,186 @@
+{
+  "created_at": "2026-03-11T13:26:41.975688",
+  "settings": {
+    "initial_capital": 1000000,
+    "max_positions": 5,
+    "hold_days": 5,
+    "trade_cost": 0.002,
+    "backtest_start": "2022-01-01"
+  },
+  "result": {
+    "period": "2022-01-04 〜 2026-03-11",
+    "initial_capital": 1000000,
+    "final_capital": 46996908199.0,
+    "total_return": 46995.9082,
+    "annual_return": 12.0848,
+    "max_drawdown": -0.6706,
+    "sharpe_ratio": 1.956,
+    "win_rate": 0.8164,
+    "profit_factor": 10.343,
+    "total_trades": 1084,
+    "avg_return_per_trade": 0.078,
+    "判定": "❌ 要改善（モデル再学習推奨）"
+  },
+  "sample_trades": [
+    {
+      "entry_date": "2022-01-04",
+      "exit_date": "2022-01-11",
+      "ticker": "3133.T",
+      "ret": 0.0182,
+      "pnl": 3074.55,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-04",
+      "exit_date": "2022-01-11",
+      "ticker": "4413.T",
+      "ret": 0.0783,
+      "pnl": 11739.32,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-04",
+      "exit_date": "2022-01-11",
+      "ticker": "4419.T",
+      "ret": -0.0492,
+      "pnl": -6380.09,
+      "win": 0
+    },
+    {
+      "entry_date": "2022-01-04",
+      "exit_date": "2022-01-11",
+      "ticker": "7047.T",
+      "ret": -0.1793,
+      "pnl": -18309.06,
+      "win": 0
+    },
+    {
+      "entry_date": "2022-01-04",
+      "exit_date": "2022-01-11",
+      "ticker": "4377.T",
+      "ret": -0.2191,
+      "pnl": -18087.2,
+      "win": 0
+    },
+    {
+      "entry_date": "2022-01-11",
+      "exit_date": "2022-01-17",
+      "ticker": "3133.T",
+      "ret": 0.1651,
+      "pnl": 30129.42,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-11",
+      "exit_date": "2022-01-17",
+      "ticker": "5411.T",
+      "ret": 0.048,
+      "pnl": 6877.71,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-11",
+      "exit_date": "2022-01-17",
+      "ticker": "4413.T",
+      "ret": 0.0391,
+      "pnl": 4490.98,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-11",
+      "exit_date": "2022-01-17",
+      "ticker": "4480.T",
+      "ret": 0.0617,
+      "pnl": 5854.71,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-11",
+      "exit_date": "2022-01-17",
+      "ticker": "3482.T",
+      "ret": 0.192,
+      "pnl": 15104.75,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-17",
+      "exit_date": "2022-01-24",
+      "ticker": "4259.T",
+      "ret": 0.1025,
+      "pnl": 19758.33,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-17",
+      "exit_date": "2022-01-24",
+      "ticker": "3133.T",
+      "ret": -0.1142,
+      "pnl": -18495.8,
+      "win": 0
+    },
+    {
+      "entry_date": "2022-01-17",
+      "exit_date": "2022-01-24",
+      "ticker": "4371.T",
+      "ret": 0.1396,
+      "pnl": 17747.7,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-17",
+      "exit_date": "2022-01-24",
+      "ticker": "4413.T",
+      "ret": -0.0566,
+      "pnl": -6125.52,
+      "win": 0
+    },
+    {
+      "entry_date": "2022-01-17",
+      "exit_date": "2022-01-24",
+      "ticker": "7352.T",
+      "ret": 0.0377,
+      "pnl": 3020.07,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-24",
+      "exit_date": "2022-01-31",
+      "ticker": "4417.T",
+      "ret": 0.1347,
+      "pnl": 26486.26,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-24",
+      "exit_date": "2022-01-31",
+      "ticker": "4575.T",
+      "ret": 0.0487,
+      "pnl": 7547.6,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-24",
+      "exit_date": "2022-01-31",
+      "ticker": "4259.T",
+      "ret": -0.0186,
+      "pnl": -2697.14,
+      "win": 0
+    },
+    {
+      "entry_date": "2022-01-24",
+      "exit_date": "2022-01-31",
+      "ticker": "4419.T",
+      "ret": -0.0324,
+      "pnl": -3650.57,
+      "win": 0
+    },
+    {
+      "entry_date": "2022-01-25",
+      "exit_date": "2022-01-31",
+      "ticker": "4371.T",
+      "ret": -0.0199,
+      "pnl": -1878.66,
+      "win": 0
+    }
+  ]
+}
