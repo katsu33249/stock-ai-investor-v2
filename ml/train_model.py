@@ -44,6 +44,10 @@ N_SPLITS    = 5       # 時系列CVの分割数
 EARLY_STOP  = 50      # Early stopping rounds
 THRESHOLD   = 0.35    # 買いシグナルの確率閾値
 
+# ★ 重要: バックテスト期間（2022〜）とのデータリークを防ぐため
+#          学習データは2021年末までに限定する
+TRAIN_END   = "2021-12-31"
+
 # ============================================================
 # ロガー設定
 # ============================================================
@@ -90,6 +94,10 @@ def load_data() -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
     # 使用する特徴量（存在するもののみ）
     feat_cols = [c for c in FEATURE_COLS if c in df.columns]
     logger.info(f"特徴量数: {len(feat_cols)}")
+
+    # ★ 学習データを TRAIN_END までに限定（バックテスト期間のリーク防止）
+    df = df[df["date"] <= TRAIN_END].copy()
+    logger.info(f"学習期間限定: 〜{TRAIN_END} ({len(df):,}レコード)")
 
     # 無限値をNaNに変換
     df[feat_cols] = df[feat_cols].replace([np.inf, -np.inf], np.nan)
