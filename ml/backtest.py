@@ -108,10 +108,14 @@ def run_backtest(df: pd.DataFrame, threshold: float) -> dict:
     dates = sorted(bt["date"].unique())
 
     capital   = float(INITIAL_CAPITAL)
-    equity    = []      # (date, capital)
+    equity    = []      # (date, total_assets)
     trades    = []      # 個別取引記録
-    open_pos  = []      # [{ticker, entry_date, exit_date, entry_prob, position_size}]
+    open_pos  = []      # [{ticker, entry_date, exit_date, entry_idx, size}]
 
+    # ★ 正しい将来リターンをticker×dateで引けるようインデックス作成
+    # entry日のreturn_5dは「過去5日」なので使えない
+    # 代わりに: entry日のreturn_1dを5日分累積して将来リターンを近似
+    # より正確に: 同銘柄の5営業日後の行のreturn_1dを使う
     for today in dates:
         today_pd = pd.Timestamp(today)
 
@@ -119,22 +123,26 @@ def run_backtest(df: pd.DataFrame, threshold: float) -> dict:
         still_open = []
         for pos in open_pos:
             if today_pd >= pos["exit_date"]:
-                row = bt[(bt["date"] == today) & (bt["ticker"] == pos["ticker"])]
-                if not row.empty:
-                    ret = float(row.iloc[0]["return_5d"])
-                    pnl = pos["size"] * ret - pos["size"] * TRADE_COST
-                    capital += pos["size"] + pnl
-                    trades.append({
-                        "entry_date": str(pos["entry_date"].date()),
-                        "exit_date":  str(today_pd.date()),
-                        "ticker":     pos["ticker"],
-                        "ret":        round(ret, 4),
-                        "pnl":        round(pnl, 2),
-                        "win":        1 if pnl > 0 else 0,
-                    })
+                # 将来リターン = entry日から5営業日分のreturn_1dを累積
+                ticker = pos["ticker"]
+                entry_idx = pos["entry_idx"]
+                ticker_rows = bt[bt["ticker"] == ticker].sort_values("date").reset_index(drop=True)
+                end_idx = min(entry_idx + HOLD_DAYS, len(ticker_rows) - 1)
+                daily_rets = ticker_rows.loc[entry_idx+1:end_idx, "return_1d"].values
+                if len(daily_rets) > 0:
+                    ret = float(np.prod(1 + daily_rets) - 1)
                 else:
-                    pnl = -pos["size"] * TRADE_COST
-                    capital += pos["size"] + pnl
+                    ret = 0.0
+                pnl = pos["size"] * ret - pos["size"] * TRADE_COST
+                capital += pos["size"] + pnl
+                trades.append({
+                    "entry_date": str(pos["entry_date"].date()),
+                    "exit_date":  str(today_pd.date()),
+                    "ticker":     ticker,
+                    "ret":        round(ret, 4),
+                    "pnl":        round(pnl, 2),
+                    "win":        1 if pnl > 0 else 0,
+                })
             else:
                 still_open.append(pos)
         open_pos = still_open
@@ -147,26 +155,32 @@ def run_backtest(df: pd.DataFrame, threshold: float) -> dict:
                 (bt["pred_prob"] >= SIGNAL_THRESHOLD)
             ].sort_values("pred_prob", ascending=False)
 
-            # 既に保有中の銘柄は除外
             held_tickers = {p["ticker"] for p in open_pos}
             today_signals = today_signals[~today_signals["ticker"].isin(held_tickers)]
 
-            # 上位slots銘柄を選択
             for _, sig in today_signals.head(slots).iterrows():
-                size = capital * POSITION_RATIO  # 1銘柄あたり最大POSITION_RATIO
+                size = capital * POSITION_RATIO
                 if size <= 0:
                     continue
+                # 銘柄の行インデックスを記録（将来リターン計算用）
+                ticker_rows = bt[bt["ticker"] == sig["ticker"]].sort_values("date").reset_index(drop=True)
+                idx_matches = ticker_rows[ticker_rows["date"] == today].index.tolist()
+                if not idx_matches:
+                    continue
+                entry_idx = idx_matches[0]
                 capital -= size
                 open_pos.append({
                     "ticker":     sig["ticker"],
                     "entry_date": today_pd,
                     "exit_date":  today_pd + pd.Timedelta(days=HOLD_DAYS),
+                    "entry_idx":  entry_idx,
                     "size":       size,
                     "entry_prob": round(float(sig["pred_prob"]), 4),
                 })
 
-        # ③ 資産記録（保有中ポジションは簿価）
-        equity.append({"date": today_pd, "capital": capital})
+        # ③ 資産記録 = 現金 + 保有ポジション簿価（DDの正確な計算のため）
+        pos_value = sum(p["size"] for p in open_pos)
+        equity.append({"date": today_pd, "capital": capital + pos_value})
 
     # 残りポジションを強制クローズ（最終日）
     for pos in open_pos:
