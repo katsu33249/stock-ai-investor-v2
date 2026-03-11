@@ -50,6 +50,8 @@ jobs:
       - name: ダウンロード確認
         run: |
           ls -lh data/ml/
+          # サブフォルダに展開されるので移動
+          find data/ml/ -name "training_data.csv" -exec mv {} data/ml/ \;
           RECORDS=$(python3 -c "
           import pandas as pd
           df = pd.read_csv('data/ml/training_data.csv')
