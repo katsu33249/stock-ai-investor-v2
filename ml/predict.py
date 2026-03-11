@@ -59,8 +59,11 @@ def get_tickers() -> list[str]:
         config = yaml.safe_load(f)
 
     tickers = []
-    for sector in config.get("policy_sectors", []):
-        tickers.extend(sector.get("ticker_list", []))
+    sectors = config.get("policy_sectors", {})
+    # policy_sectors は辞書形式: {sector_name: {ticker_list: [...]}}
+    for sector_name, sector_data in sectors.items():
+        if isinstance(sector_data, dict):
+            tickers.extend(sector_data.get("ticker_list", []))
     tickers = [t.replace(".T", "") for t in tickers]
     tickers = list(dict.fromkeys(tickers))  # 重複除去
     logger.info(f"銘柄数: {len(tickers)}")
