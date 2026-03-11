@@ -231,12 +231,23 @@ def fetch_topix_returns() -> tuple[float, float]:
             params={"from": start_date, "to": end_date},
             timeout=10
         )
-        data = resp.json().get("data", [])
-        if len(data) < 21:
+        body = resp.json()
+        data = body.get("data", body.get("indices", body.get("topix", [])))
+        if not data:
+            logger.warning(f"TOPIX レスポンスキー: {list(body.keys())}")
             return 0.0, 0.0
-        closes = [float(d["Close"]) for d in data]
+        # 最初の要素のキーを確認してclose値を取得
+        sample = data[0]
+        close_key = next((k for k in ["Close", "close", "AdjustmentClose", "indexClose"] if k in sample), None)
+        if not close_key:
+            logger.warning(f"TOPIX closeキー不明: {list(sample.keys())}")
+            return 0.0, 0.0
+        closes = [float(d[close_key]) for d in data if d.get(close_key)]
+        if len(closes) < 6:
+            return 0.0, 0.0
         r5  = closes[-1] / closes[-6]  - 1 if len(closes) >= 6 else 0.0
         r20 = closes[-1] / closes[-21] - 1 if len(closes) >= 21 else 0.0
+        logger.info(f"TOPIX closeキー: '{close_key}' データ数:{len(closes)}")
         return round(r5, 4), round(r20, 4)
     except Exception as e:
         logger.warning(f"TOPIX取得エラー: {e}")
