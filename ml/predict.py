@@ -36,6 +36,9 @@ TOP_N            = 5      # Discord通知する上位銘柄数
 JQUANTS_API_KEY  = os.environ.get("JQUANTS_API_KEY", "")
 DISCORD_WEBHOOK  = os.environ.get("DISCORD_WEBHOOK_URL", "")
 
+def _headers() -> dict:
+    return {"x-api-key": JQUANTS_API_KEY}
+
 # ============================================================
 # ロガー設定
 # ============================================================
@@ -71,49 +74,43 @@ def get_tickers() -> list[str]:
 
 
 # ============================================================
-# 2. J-Quants 価格データ取得（直近65営業日）
+# 2. J-Quants 価格データ取得（直近90日）
 # ============================================================
-def get_jquants_token() -> str:
-    import requests
-    resp = requests.post(
-        "https://api.jquants.com/v1/token/auth_user",
-        json={"mailaddress": "", "password": JQUANTS_API_KEY}
-    )
-    if resp.status_code != 200:
-        # リフレッシュトークン方式
-        resp = requests.post(
-            "https://api.jquants.com/v1/token/auth_refresh",
-            params={"refreshtoken": JQUANTS_API_KEY}
-        )
-    data = resp.json()
-    return data.get("idToken") or data.get("token", "")
-
-
-def fetch_prices(tickers: list[str], token: str) -> dict[str, pd.DataFrame]:
+def fetch_prices(tickers: list[str]) -> dict[str, pd.DataFrame]:
     """各銘柄の直近90日の価格を取得"""
     import requests, time
 
-    headers = {"Authorization": f"Bearer {token}"}
     end_date   = datetime.now().strftime("%Y-%m-%d")
     start_date = (datetime.now() - timedelta(days=130)).strftime("%Y-%m-%d")
 
     prices = {}
+    # 日付フォーマットをYYYYMMDDに変換（data_fetcher.pyと同じ）
+    start_fmt = start_date.replace("-", "")
+    end_fmt   = end_date.replace("-", "")
+
     for i, ticker in enumerate(tickers):
         try:
+            # 4桁コード → 5桁（末尾に0追加）
+            code = ticker + "0" if len(ticker) == 4 else ticker
             resp = requests.get(
-                "https://api.jquants.com/v2/prices/daily_quotes",
-                headers=headers,
-                params={"code": ticker, "from": start_date, "to": end_date},
+                "https://api.jquants.com/v2/equities/bars/daily",
+                headers=_headers(),
+                params={"code": code, "from": start_fmt, "to": end_fmt},
                 timeout=10
             )
             if resp.status_code == 200:
-                data = resp.json().get("daily_quotes", [])
+                data = resp.json().get("data", [])
                 if data:
                     df = pd.DataFrame(data)
+                    # AdjC（調整後終値）またはC（終値）を使用
+                    if "AdjC" in df.columns:
+                        df = df.rename(columns={"Date": "Date", "AdjC": "AdjustmentClose", "AdjVo": "AdjustmentVolume"})
+                    else:
+                        df = df.rename(columns={"Date": "Date", "C": "AdjustmentClose", "Vo": "AdjustmentVolume"})
                     df["Date"] = pd.to_datetime(df["Date"])
                     df = df.sort_values("Date").reset_index(drop=True)
                     prices[ticker] = df
-            if i % 20 == 0:
+            if i % 30 == 0:
                 logger.info(f"  価格取得中: {i}/{len(tickers)}")
             time.sleep(0.1)
         except Exception as e:
@@ -223,14 +220,14 @@ def calc_features(ticker: str, df: pd.DataFrame, fund: dict) -> dict | None:
 # ============================================================
 # 4. TOPIX直近リターンを取得して追加
 # ============================================================
-def fetch_topix_returns(token: str) -> tuple[float, float]:
+def fetch_topix_returns() -> tuple[float, float]:
     import requests
     end_date   = datetime.now().strftime("%Y-%m-%d")
     start_date = (datetime.now() - timedelta(days=40)).strftime("%Y-%m-%d")
     try:
         resp = requests.get(
             "https://api.jquants.com/v2/indices/bars/daily/topix",
-            headers={"Authorization": f"Bearer {token}"},
+            headers=_headers(),
             params={"from": start_date, "to": end_date},
             timeout=10
         )
@@ -310,17 +307,11 @@ def main():
     # 銘柄リスト
     tickers = get_tickers()
 
-    # J-Quants トークン取得
-    token = get_jquants_token()
-    if not token:
-        logger.error("J-Quantsトークン取得失敗")
-        return
-
     # 価格データ取得
-    prices = fetch_prices(tickers, token)
+    prices = fetch_prices(tickers)
 
     # TOPIX
-    topix_r5, topix_r20 = fetch_topix_returns(token)
+    topix_r5, topix_r20 = fetch_topix_returns()
     logger.info(f"TOPIX: 5d={topix_r5:+.2%} 20d={topix_r20:+.2%}")
 
     # ファンダメンタルキャッシュ読み込み
