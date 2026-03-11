@@ -72,8 +72,13 @@ jobs:
           JQUANTS_API_KEY: ${{ secrets.JQUANTS_API_KEY }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          find data/ml/ -name "model.pkl" -not -path "data/ml/model.pkl" -exec mv {} data/ml/ \;
-          if [ -f data/ml/model.pkl ]; then
+          echo "=== data/ml/ の内容 ==="
+          find data/ml/ -type f | head -20
+          # サブフォルダのmodel.pklをルートに移動
+          PKL=$(find data/ml/ -name "model.pkl" | head -1)
+          if [ -n "$PKL" ]; then
+            cp "$PKL" data/ml/model.pkl
+            echo "モデル: $PKL → data/ml/model.pkl"
             python ml/predict.py
           else
             echo "MLモデル未検出 - スキップ"
