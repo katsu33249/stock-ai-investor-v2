@@ -2,6 +2,7 @@ name: 📊 Daily Stock Scan
 
 permissions:
   contents: write
+  actions: read
 
 on:
   schedule:
@@ -55,12 +56,37 @@ jobs:
         run: |
           python main.py --mode ${{ github.event.inputs.mode || 'full' }} --config config/settings_runtime.yaml
 
+      - name: 🤖 MLモデルをダウンロード
+        uses: dawidd6/action-download-artifact@v3
+        continue-on-error: true
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: train_model.yml
+          name_is_regexp: true
+          name: ml-model-.*
+          path: data/ml/
+          search_artifacts: true
+
+      - name: 🔮 ML日次シグナル予測
+        env:
+          JQUANTS_API_KEY: ${{ secrets.JQUANTS_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          find data/ml/ -name "model.pkl" -not -path "data/ml/model.pkl" -exec mv {} data/ml/ \;
+          if [ -f data/ml/model.pkl ]; then
+            python ml/predict.py
+          else
+            echo "MLモデル未検出 - スキップ"
+          fi
+
       - name: 💾 結果の保存
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: screening-results-${{ github.run_number }}
-          path: data/results/
+          path: |
+            data/results/
+            data/ml/today_signals.json
           retention-days: 30
 
       - name: 📝 結果をコミット
