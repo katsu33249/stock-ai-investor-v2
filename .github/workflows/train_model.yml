@@ -101,44 +101,4 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          python3 -c "
-          import json, requests, os
-
-          with open('data/ml/model_info.json', encoding='utf-8') as f:
-              info = json.load(f)
-
-          ev  = info['evaluation']
-          cv  = info['cv_results']
-          imp = info['feature_importance_top10']
-
-          # 特徴量重要度TOP5
-          top5 = list(imp.items())[:5]
-          imp_text = '\n'.join([f'  {i+1}. {k}: {v:.0f}' for i,(k,v) in enumerate(top5)])
-
-          # Foldごとの結果
-          fold_text = '\n'.join([
-              f'  Fold{f[\"fold\"]}: AUC={f[\"auc\"]:.3f} Prec={f[\"precision\"]:.3f} ({f[\"val_from\"]}〜{f[\"val_to\"]})'
-              for f in cv['folds']
-          ])
-
-          msg = f'''📊 **ML PHASE 2 - モデル学習完了**
-
-**評価結果** {ev[\"判定\"]}
-・AUC:       {ev[\"auc\"]:.3f}  （目標: 0.55以上）
-・Precision: {ev[\"precision\"]:.3f}
-・Recall:    {ev[\"recall\"]:.3f}
-・F1:        {ev[\"f1\"]:.3f}
-
-**時系列CV（{len(cv[\"folds\"])}分割）**
-{fold_text}
-
-**特徴量重要度 TOP5**
-{imp_text}
-
-・学習データ: {info[\"total_records\"]:,}レコード
-・閾値: {info[\"threshold\"]}
-・モデル: Artifact ml-model-${{ github.run_number }}'''
-
-          requests.post(os.environ['DISCORD_WEBHOOK_URL'], json={'content': msg})
-          print('Discord通知送信完了')
-          "
+          python ml/notify_phase2.py ${{ github.run_number }}
