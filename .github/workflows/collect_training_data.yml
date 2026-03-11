@@ -60,12 +60,12 @@ jobs:
             data/ml/feature_info.json
           retention-days: 90
 
-      - name: 📝 学習データをリポジトリにコミット
+      - name: 📝 メタ情報のみリポジトリにコミット（CSVは大きすぎるためArtifactのみ）
         uses: stefanzweifel/git-auto-commit-action@v5
         if: success()
         with:
           commit_message: "🤖 ML学習データ収集完了 - Run#${{ github.run_number }}"
-          file_pattern: "data/ml/*.csv data/ml/*.json"
+          file_pattern: "data/ml/feature_info.json"
           commit_user_name: "Stock AI Bot"
           commit_user_email: "bot@github.actions"
 
