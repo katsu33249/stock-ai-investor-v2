@@ -1,0 +1,144 @@
+name: 📊 ML PHASE 2 - モデル学習
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_note:
+        description: '実行メモ（任意）'
+        required: false
+        default: ''
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python セットアップ
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 依存ライブラリをインストール
+        run: |
+          pip install \
+            lightgbm \
+            scikit-learn \
+            pandas \
+            numpy \
+            loguru \
+            requests
+
+      - name: PHASE 1 Artifact（学習データ）をダウンロード
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: collect_training_data.yml
+          name_is_regexp: true
+          name: training-data-.*
+          path: data/ml/
+          search_artifacts: true
+
+      - name: ダウンロード確認
+        run: |
+          ls -lh data/ml/
+          RECORDS=$(python3 -c "
+          import pandas as pd
+          df = pd.read_csv('data/ml/training_data.csv')
+          print(f'{len(df):,}')
+          ")
+          echo "✅ 学習データ: ${RECORDS}レコード"
+
+      - name: 🤖 LightGBMモデル学習
+        run: |
+          python ml/train_model.py
+
+      - name: 学習結果を確認
+        id: result
+        run: |
+          AUC=$(cat data/ml/model_info.json | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          print(d['evaluation']['auc'])
+          ")
+          PREC=$(cat data/ml/model_info.json | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          print(d['evaluation']['precision'])
+          ")
+          JUDGE=$(cat data/ml/model_info.json | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          print(d['evaluation']['判定'])
+          ")
+          echo "auc=${AUC}" >> $GITHUB_OUTPUT
+          echo "precision=${PREC}" >> $GITHUB_OUTPUT
+          echo "judge=${JUDGE}" >> $GITHUB_OUTPUT
+          echo "AUC: ${AUC} | Precision: ${PREC} | ${JUDGE}"
+
+      - name: モデルをArtifactに保存
+        uses: actions/upload-artifact@v4
+        with:
+          name: ml-model-${{ github.run_number }}
+          path: |
+            data/ml/model.pkl
+            data/ml/model_info.json
+          retention-days: 90
+
+      - name: model_info.json をリポジトリにコミット
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "🤖 ML PHASE2 モデル学習完了 - Run#${{ github.run_number }}"
+          file_pattern: data/ml/model_info.json
+          commit_user_name: Stock AI Bot
+          commit_user_email: bot@github.actions
+
+      - name: Discord に学習結果を通知
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          python3 -c "
+          import json, requests, os
+
+          with open('data/ml/model_info.json', encoding='utf-8') as f:
+              info = json.load(f)
+
+          ev  = info['evaluation']
+          cv  = info['cv_results']
+          imp = info['feature_importance_top10']
+
+          # 特徴量重要度TOP5
+          top5 = list(imp.items())[:5]
+          imp_text = '\n'.join([f'  {i+1}. {k}: {v:.0f}' for i,(k,v) in enumerate(top5)])
+
+          # Foldごとの結果
+          fold_text = '\n'.join([
+              f'  Fold{f[\"fold\"]}: AUC={f[\"auc\"]:.3f} Prec={f[\"precision\"]:.3f} ({f[\"val_from\"]}〜{f[\"val_to\"]})'
+              for f in cv['folds']
+          ])
+
+          msg = f'''📊 **ML PHASE 2 - モデル学習完了**
+
+**評価結果** {ev[\"判定\"]}
+・AUC:       {ev[\"auc\"]:.3f}  （目標: 0.55以上）
+・Precision: {ev[\"precision\"]:.3f}
+・Recall:    {ev[\"recall\"]:.3f}
+・F1:        {ev[\"f1\"]:.3f}
+
+**時系列CV（{len(cv[\"folds\"])}分割）**
+{fold_text}
+
+**特徴量重要度 TOP5**
+{imp_text}
+
+・学習データ: {info[\"total_records\"]:,}レコード
+・閾値: {info[\"threshold\"]}
+・モデル: Artifact ml-model-${{ github.run_number }}'''
+
+          requests.post(os.environ['DISCORD_WEBHOOK_URL'], json={'content': msg})
+          print('Discord通知送信完了')
+          "
