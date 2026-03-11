@@ -43,9 +43,11 @@ RESULT_PATH  = OUTPUT_DIR / "backtest_result.json"
 EQUITY_PATH  = OUTPUT_DIR / "backtest_equity.csv"
 
 INITIAL_CAPITAL  = 1_000_000   # 初期資金（円）
-MAX_POSITIONS    = 5           # 同時保有最大銘柄数
+MAX_POSITIONS    = 10          # 同時保有最大銘柄数（分散強化: 5→10）
+POSITION_RATIO   = 0.10        # 1銘柄あたり最大投資比率（10%）
 HOLD_DAYS        = 5           # 保有期間（日）
 TRADE_COST       = 0.002       # 往復コスト（0.2%）
+STOP_LOSS        = -0.05       # 損切りライン（-5%）
 BACKTEST_START   = "2022-01-01"  # バックテスト開始日（学習期間外）
 
 # ============================================================
@@ -113,14 +115,22 @@ def run_backtest(df: pd.DataFrame, threshold: float) -> dict:
     for today in dates:
         today_pd = pd.Timestamp(today)
 
-        # ① ポジションのクローズチェック
+        # ① ポジションのクローズチェック（損切り or 期間満了）
         still_open = []
         for pos in open_pos:
-            if today_pd >= pos["exit_date"]:
-                # 当日の終値でクローズ
-                row = bt[(bt["date"] == today) & (bt["ticker"] == pos["ticker"])]
+            row = bt[(bt["date"] == today) & (bt["ticker"] == pos["ticker"])]
+            # 当日の1日リターン（損切り判定用）
+            today_ret_1d = float(row.iloc[0]["return_1d"]) if not row.empty else 0.0
+
+            # 損切り判定: 当日の1日リターンが損切りラインを下回ったら即クローズ
+            stop_triggered = today_ret_1d <= STOP_LOSS
+
+            if stop_triggered or today_pd >= pos["exit_date"]:
                 if not row.empty:
-                    ret = float(row.iloc[0]["return_5d"])  # 5日リターン（既計算済み）
+                    if stop_triggered:
+                        ret = STOP_LOSS  # 損切り時はSTOP_LOSSで固定
+                    else:
+                        ret = float(row.iloc[0]["return_5d"])
                     pnl = pos["size"] * ret - pos["size"] * TRADE_COST
                     capital += pos["size"] + pnl
                     trades.append({
@@ -130,9 +140,9 @@ def run_backtest(df: pd.DataFrame, threshold: float) -> dict:
                         "ret":        round(ret, 4),
                         "pnl":        round(pnl, 2),
                         "win":        1 if pnl > 0 else 0,
+                        "stop_loss":  1 if stop_triggered else 0,
                     })
                 else:
-                    # データなし → コストだけ引いてフラット
                     pnl = -pos["size"] * TRADE_COST
                     capital += pos["size"] + pnl
             else:
@@ -153,7 +163,7 @@ def run_backtest(df: pd.DataFrame, threshold: float) -> dict:
 
             # 上位slots銘柄を選択
             for _, sig in today_signals.head(slots).iterrows():
-                size = capital * (1 / MAX_POSITIONS) * 0.95  # 5%バッファ
+                size = capital * POSITION_RATIO  # 1銘柄あたり最大POSITION_RATIO
                 if size <= 0:
                     continue
                 capital -= size
