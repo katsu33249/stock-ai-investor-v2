@@ -238,7 +238,7 @@ def fetch_topix_returns() -> tuple[float, float]:
             return 0.0, 0.0
         # 最初の要素のキーを確認してclose値を取得
         sample = data[0]
-        close_key = next((k for k in ["Close", "close", "AdjustmentClose", "indexClose"] if k in sample), None)
+        close_key = next((k for k in ["C", "Close", "close", "AdjustmentClose", "indexClose"] if k in sample), None)
         if not close_key:
             logger.warning(f"TOPIX closeキー不明: {list(sample.keys())}")
             return 0.0, 0.0
