@@ -210,6 +210,7 @@ def calc_features(ticker: str, df: pd.DataFrame, fund: dict) -> dict | None:
                 r[k] = 0.0
 
         r["ticker"] = ticker
+        r["name"]   = str(fund.get("name", ticker))
         return r
 
     except Exception as e:
@@ -288,11 +289,12 @@ def notify_discord(signals: pd.DataFrame, today_str: str):
         lines = [f"🤖 **ML シグナル {today_str}** （閾値: {SIGNAL_THRESHOLD}）", ""]
         for i, (_, row) in enumerate(signals.iterrows(), 1):
             ticker  = row["ticker"]
+            name    = row.get("name", ticker)
             prob    = row["pred_prob"]
             ret_1d  = row.get("return_1d", 0)
             rsi     = row.get("rsi14", 0)
             lines.append(
-                f"**{i}. {ticker}.T**  確率:{prob:.0%}  "
+                f"**{i}. {name} ({ticker}.T)**  確率:{prob:.0%}  "
                 f"前日:{ret_1d:+.1%}  RSI:{rsi:.0f}"
             )
         msg = "\n".join(lines)
