@@ -85,12 +85,22 @@ def fetch_company_names() -> dict[str, str]:
             headers=_headers(),
             timeout=15
         )
-        data = resp.json().get("info", [])
+        body = resp.json()
+        # レスポンスキーを確認
+        top_keys = list(body.keys())[:5]
+        logger.info(f"listed/info レスポンスキー: {top_keys}")
+
+        # キーを柔軟に探す
+        data = body.get("info") or body.get("data") or body.get("items") or []
+        if not data and isinstance(body, list):
+            data = body
+
         name_map = {}
         for item in data:
-            code = str(item.get("Code", "")).replace(".T", "")
-            name = item.get("CompanyName") or item.get("CompanyNameEnglish") or code
-            if code:
+            code = str(item.get("Code", "") or item.get("code", "")).replace(".T", "").zfill(4)
+            name = (item.get("CompanyName") or item.get("company_name")
+                    or item.get("CompanyNameEnglish") or code)
+            if code and code != "0000":
                 name_map[code] = name
         logger.info(f"会社名取得: {len(name_map)}銘柄")
         return name_map
