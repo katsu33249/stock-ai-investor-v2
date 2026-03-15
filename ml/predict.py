@@ -80,15 +80,15 @@ def fetch_company_names() -> dict[str, str]:
     """J-Quants /v2/listed/info から銘柄コード→会社名の辞書を返す"""
     import requests
     try:
+        today_str = datetime.now().strftime("%Y-%m-%d")
         resp = requests.get(
             "https://api.jquants.com/v2/listed/info",
             headers=_headers(),
+            params={"date": today_str},
             timeout=15
         )
         body = resp.json()
-        # レスポンスキーを確認
-        top_keys = list(body.keys())[:5]
-        logger.info(f"listed/info レスポンスキー: {top_keys}")
+        logger.info(f"listed/info status:{resp.status_code} keys:{list(body.keys())[:5]}")
 
         # キーを柔軟に探す
         data = body.get("info") or body.get("data") or body.get("items") or []
