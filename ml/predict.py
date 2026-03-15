@@ -236,6 +236,16 @@ def calc_features(ticker: str, df: pd.DataFrame, fund: dict) -> dict | None:
         r["above_ma75"] = float(c > ma75.iloc[-1])
         r["gc_25_75"]   = float(ma25.iloc[-1] > ma75.iloc[-1])
 
+        # 5MA関連（フィルター用）
+        c_prev        = close.iloc[-2]
+        ma5_today     = float(ma5.iloc[-1])
+        ma5_prev      = float(ma5.iloc[-2])
+        # 5MA上抜け: 前日終値が5MA以下 → 当日終値が5MA以上
+        r["ma5_breakout"] = float(c_prev <= ma5_prev and c >= ma5_today)
+        # 5MAからの乖離（すでにma5_devで計算済み）
+        # 5MA上に位置しているか
+        r["above_ma5"] = float(c >= ma5_today)
+
         # RSI14
         delta = close.diff()
         gain  = delta.clip(lower=0).rolling(14).mean()
@@ -377,9 +387,12 @@ def notify_discord(signals: pd.DataFrame, today_str: str, name_map: dict = {}):
             prob    = row["pred_prob"]
             ret_1d  = row.get("return_1d", 0)
             rsi     = row.get("rsi14", 0)
+            above_ma5   = row.get("above_ma5", 1.0)
+            ma5_break   = row.get("ma5_breakout", 0.0)
+            ma5_mark    = "🔼5MA抜け " if ma5_break == 1.0 else ("📈5MA上 " if above_ma5 == 1.0 else "")
             lines.append(
                 f"**{i}. {name} ({ticker}.T)**  確率:{prob:.0%}  "
-                f"前日:{ret_1d:+.1%}  RSI:{rsi:.0f}"
+                f"前日:{ret_1d:+.1%}  RSI:{rsi:.0f}  {ma5_mark}"
             )
         msg = "\n".join(lines)
 
@@ -453,7 +466,16 @@ def main():
 
     # シグナル抽出（前日と重複しない新規銘柄のみ・上位TOP_N件）
     all_signals = pred_df[pred_df["pred_prob"] >= SIGNAL_THRESHOLD]
-    new_signals  = all_signals[~all_signals["ticker"].isin(prev_tickers)]
+
+    # 5MAフィルター: 5MA上に位置している銘柄のみ（上抜け or 上位にある）
+    if "above_ma5" in all_signals.columns:
+        ma5_filtered = all_signals[all_signals["above_ma5"] == 1.0]
+        logger.info(f"5MAフィルター後: {len(ma5_filtered)} / {len(all_signals)}銘柄")
+        # フィルター後に5件未満なら緩めてフィルター前に戻す
+        if len(ma5_filtered) >= 3:
+            all_signals = ma5_filtered
+
+    new_signals = all_signals[~all_signals["ticker"].isin(prev_tickers)]
     signals = new_signals.head(TOP_N)
     logger.info(f"シグナル銘柄数: {len(signals)} 新規 / {len(all_signals)} 全体 (閾値:{SIGNAL_THRESHOLD})")
 
