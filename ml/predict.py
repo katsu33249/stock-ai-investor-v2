@@ -438,9 +438,24 @@ def main():
     # 予測
     pred_df = predict(features_list, topix_r5, topix_r20)
 
-    # シグナル抽出
-    signals = pred_df[pred_df["pred_prob"] >= SIGNAL_THRESHOLD].head(TOP_N)
-    logger.info(f"シグナル銘柄数: {len(signals)} (閾値:{SIGNAL_THRESHOLD})")
+    # 前日シグナルを読み込み（重複除外用）
+    prev_tickers = set()
+    if SIGNAL_PATH.exists():
+        try:
+            with open(SIGNAL_PATH, encoding="utf-8") as f:
+                prev = json.load(f)
+            # 前日のデータなら除外対象にする
+            if prev.get("date") != today_str:
+                prev_tickers = {s["ticker"] for s in prev.get("signals", [])}
+                logger.info(f"前日シグナル除外: {prev_tickers}")
+        except Exception:
+            pass
+
+    # シグナル抽出（前日と重複しない新規銘柄のみ・上位TOP_N件）
+    all_signals = pred_df[pred_df["pred_prob"] >= SIGNAL_THRESHOLD]
+    new_signals  = all_signals[~all_signals["ticker"].isin(prev_tickers)]
+    signals = new_signals.head(TOP_N)
+    logger.info(f"シグナル銘柄数: {len(signals)} 新規 / {len(all_signals)} 全体 (閾値:{SIGNAL_THRESHOLD})")
 
     # 保存
     output = {
