@@ -74,7 +74,33 @@ def get_tickers() -> list[str]:
 
 
 # ============================================================
-# 2. J-Quants 価格データ取得（直近90日）
+# 2. J-Quants 銘柄マスタから会社名を取得
+# ============================================================
+def fetch_company_names() -> dict[str, str]:
+    """J-Quants /v2/listed/info から銘柄コード→会社名の辞書を返す"""
+    import requests
+    try:
+        resp = requests.get(
+            "https://api.jquants.com/v2/listed/info",
+            headers=_headers(),
+            timeout=15
+        )
+        data = resp.json().get("info", [])
+        name_map = {}
+        for item in data:
+            code = str(item.get("Code", "")).replace(".T", "")
+            name = item.get("CompanyName") or item.get("CompanyNameEnglish") or code
+            if code:
+                name_map[code] = name
+        logger.info(f"会社名取得: {len(name_map)}銘柄")
+        return name_map
+    except Exception as e:
+        logger.warning(f"会社名取得エラー: {e}")
+        return {}
+
+
+# ============================================================
+# 3. J-Quants 価格データ取得（直近90日）
 # ============================================================
 def fetch_prices(tickers: list[str]) -> dict[str, pd.DataFrame]:
     """各銘柄の直近90日の価格を取得"""
@@ -280,7 +306,7 @@ def predict(features_list: list[dict], topix_r5: float, topix_r20: float) -> pd.
 # ============================================================
 # 6. Discord通知
 # ============================================================
-def notify_discord(signals: pd.DataFrame, today_str: str):
+def notify_discord(signals: pd.DataFrame, today_str: str, name_map: dict = {}):
     import requests
 
     if signals.empty:
@@ -289,7 +315,7 @@ def notify_discord(signals: pd.DataFrame, today_str: str):
         lines = [f"🤖 **ML シグナル {today_str}** （閾値: {SIGNAL_THRESHOLD}）", ""]
         for i, (_, row) in enumerate(signals.iterrows(), 1):
             ticker  = row["ticker"]
-            name    = row.get("name", ticker)
+            name    = name_map.get(ticker) or row.get("name", ticker)
             prob    = row["pred_prob"]
             ret_1d  = row.get("return_1d", 0)
             rsi     = row.get("rsi14", 0)
@@ -319,6 +345,9 @@ def main():
 
     # 銘柄リスト
     tickers = get_tickers()
+
+    # 会社名マップ取得
+    name_map  = fetch_company_names()
 
     # 価格データ取得
     prices = fetch_prices(tickers)
@@ -368,7 +397,7 @@ def main():
 
     # Discord通知
     if DISCORD_WEBHOOK:
-        notify_discord(signals, today_str)
+        notify_discord(signals, today_str, name_map)
     else:
         logger.warning("DISCORD_WEBHOOK_URL が未設定")
 
