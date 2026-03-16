@@ -342,36 +342,7 @@ def fetch_topix_data() -> dict:
     return result
 
 
-def fetch_nikkei_futures() -> dict:
-    """日経225先物をstooq.comから取得（APIトークン不要・無料）"""
-    import requests
-    result = {"price": 0.0, "change_pct": 0.0}
-    try:
-        # stooq.com: nk225f=日経225先物
-        resp = requests.get(
-            "https://stooq.com/q/l/?s=nk225f.cmefm&f=sd2t2ohlcv&h&e=csv",
-            timeout=10
-        )
-        lines = resp.text.strip().split("\n")
-        if len(lines) >= 2:
-            cols  = lines[0].split(",")
-            vals  = lines[1].split(",")
-            row   = dict(zip(cols, vals))
-            close_str = row.get("Close", "0")
-            open_str  = row.get("Open", "0")
-            # N/D は取得不可（休日・時間外）→ スキップ
-            if close_str in ("N/D", "N/A", "", "0") or open_str in ("N/D", "N/A", ""):
-                logger.info("日経先物: データなし（休日または時間外）")
-            else:
-                close = float(close_str)
-                open_ = float(open_str) if open_str else close
-                if close > 0 and open_ > 0:
-                    chg = (close - open_) / open_
-                    result = {"price": close, "change_pct": round(chg, 4)}
-                    logger.info(f"日経先物: {close:,.0f} ({chg:+.2%})")
-    except Exception as e:
-        logger.warning(f"日経先物取得エラー: {e}")
-    return result
+
 
 
 # ============================================================
@@ -399,17 +370,12 @@ def predict(features_list: list[dict], topix: dict) -> pd.DataFrame:
 # ============================================================
 # 6. Discord通知
 # ============================================================
-def notify_discord(signals: pd.DataFrame, today_str: str, name_map: dict = {},
-                   topix: dict = {}, nikkei_f: dict = {}):
+def notify_discord(signals: pd.DataFrame, today_str: str, name_map: dict = {}, topix: dict = {}):
     import requests
 
     # 市場環境ヘッダー
-    topix_mark   = "✅25MA上" if topix.get("above_ma25", True) else "⚠️25MA下"
-    nk_price     = nikkei_f.get("price", 0.0)
-    nk_chg       = nikkei_f.get("change_pct", 0.0)
-    nk_emoji     = "🔴" if nk_chg <= -0.01 else ("🟢" if nk_chg >= 0.01 else "⚪")
-    nk_str       = f"{nk_price:,.0f} ({nk_chg:+.1%}) {nk_emoji}" if nk_price > 0 else "取得失敗"
-    market_line  = f"📊 TOPIX:{topix_mark}  日経先物:{nk_str}"
+    topix_mark  = "✅25MA上" if topix.get("above_ma25", True) else "⚠️25MA下"
+    market_line = f"📊 TOPIX:{topix_mark}"
 
     if signals.empty:
         msg = f"🤖 **ML シグナル {today_str}**\n{market_line}\n該当銘柄なし（閾値: {SIGNAL_THRESHOLD}）"
@@ -596,7 +562,6 @@ def main():
 
     # TOPIX
     topix    = fetch_topix_data()
-    nikkei_f = fetch_nikkei_futures()
 
     # ファンダメンタルキャッシュ読み込み
     fund_cache = {}
@@ -665,7 +630,7 @@ def main():
 
     # Discord通知
     if DISCORD_WEBHOOK:
-        notify_discord(signals, today_str, name_map, topix, nikkei_f)
+        notify_discord(signals, today_str, name_map, topix)
     else:
         logger.warning("DISCORD_WEBHOOK_URL が未設定")
 
