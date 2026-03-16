@@ -8,8 +8,8 @@ on:
   schedule:
     # 毎晩23時30分（平日）→ NY市場開場後の先物を確認してからシグナル出力
     - cron: "30 14 * * 1-5"
-    # 毎月1日 夜9時 → EDINET DB財務データ更新
-    - cron: "0 12 1 * *"
+    # 毎週日曜日 夜9時 → EDINET DB財務データ更新
+    - cron: "0 12 * * 0"
   workflow_dispatch:
     inputs:
       mode:
@@ -27,7 +27,7 @@ jobs:
   stock-scan:
     name: 日次スクリーニング
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.event.schedule != '0 12 1 * *')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.event.schedule != '0 12 * * 0')
 
     steps:
       - name: 📥 リポジトリ取得
@@ -126,7 +126,7 @@ jobs:
   update-fundamentals:
     name: 月次財務データ更新
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' && github.event.schedule == '0 12 1 * *' || (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'update_fundamentals')
+    if: github.event_name == 'schedule' && github.event.schedule == '0 12 * * 0' || (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'update_fundamentals')
 
     steps:
       - name: 📥 リポジトリ取得
