@@ -6,8 +6,8 @@ permissions:
 
 on:
   schedule:
-    # 毎晩22時（平日）→ 株価スクリーニング（翌朝成行注文用）
-    - cron: "0 13 * * 1-5"
+    # 毎晩23時30分（平日）→ NY市場開場後の先物を確認してからシグナル出力
+    - cron: "30 14 * * 1-5"
     # 毎月1日 夜9時 → EDINET DB財務データ更新
     - cron: "0 12 1 * *"
   workflow_dispatch:
