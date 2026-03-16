@@ -1,65 +1,79 @@
 """
 data_fetcher.py - J-Quants API V2対応版
 
-V2変更点：
-- 認証：APIキー（x-api-key ヘッダー）
-- エンドポイント：/v2/equities/bars/daily
-- カラム名：Close→C, Open→O, High→H, Low→L, Volume→Vo
-- 銘柄マスタ：dateパラメータ必須
+キャッシュ機能:
+- data/cache/price_cache.pkl に価格データを保存
+- 18時間以内は再取得しない（APIコール節約）
+- predict.py と共有
 """
 
 import requests
 import pandas as pd
+import pickle
 import time
 import os
 from datetime import datetime, timedelta
 from loguru import logger
 from typing import Optional
+from pathlib import Path
 
 
-# 銘柄名マップ（J-Quantsで取れない場合のフォールバック）
-STOCK_NAME_MAP = {
-    # 防衛
+PRICE_CACHE_PATH   = Path("data/cache/price_cache.pkl")
+CACHE_EXPIRE_HOURS = 18
+
+# 銘柄名マップ（config/stock_names.json から一元管理）
+def _load_stock_names() -> dict:
+    """stock_names.jsonを読み込み {ticker.T: 名前} 形式で返す"""
+    import json
+    paths = [
+        Path("config/stock_names.json"),
+        Path(__file__).parent.parent.parent / "config/stock_names.json",
+    ]
+    for p in paths:
+        if p.exists():
+            with open(p, encoding="utf-8") as f:
+                data = json.load(f)
+            # キーを "7011" → "7011.T" 形式に変換
+            return {f"{k}.T": v for k, v in data.items()}
+    return {}
+
+STOCK_NAME_MAP = _load_stock_names()
+
+# フォールバック（JSON読み込み失敗時）
+if not STOCK_NAME_MAP:
+    STOCK_NAME_MAP = {
     "7011.T": "三菱重工業", "7012.T": "川崎重工業", "7013.T": "IHI",
     "6479.T": "ミネベアミツミ", "7762.T": "シチズン時計", "6952.T": "カシオ計算機",
     "4062.T": "イビデン", "6967.T": "新光電気工業", "6203.T": "豊和工業",
     "4274.T": "細谷火工", "7721.T": "東京計器", "6208.T": "石川製作所",
     "7980.T": "重松製作所", "4275.T": "カーリットHD",
     "6503.T": "三菱電機", "6701.T": "NEC", "6702.T": "富士通", "7270.T": "SUBARU",
-    # 半導体
     "8035.T": "東京エレクトロン", "6857.T": "アドバンテスト", "6146.T": "ディスコ",
     "4063.T": "信越化学工業", "4523.T": "エーザイ", "6723.T": "ルネサスエレクトロニクス",
     "6526.T": "ソシオネクスト", "6920.T": "レーザーテック",
     "7735.T": "SCREENホールディングス", "6758.T": "ソニーグループ", "6600.T": "キオクシアHD",
-    # GX
     "9519.T": "レノバ", "6367.T": "ダイキン工業", "6501.T": "日立製作所",
     "5020.T": "ENEOSホールディングス", "9531.T": "東京ガス", "8113.T": "ユニ・チャーム",
     "4208.T": "UBE", "7203.T": "トヨタ自動車", "5401.T": "日本製鉄", "7003.T": "三井E&S",
-    # AI/DX
     "9432.T": "NTT", "9433.T": "KDDI", "9984.T": "ソフトバンクグループ",
     "4307.T": "野村総合研究所", "9613.T": "NTTデータグループ",
     "3769.T": "GMOペイメントゲートウェイ", "4704.T": "トレンドマイクロ",
     "9719.T": "SCSK", "4739.T": "伊藤忠テクノソリューションズ", "4324.T": "電通グループ",
-    # 医療
     "4502.T": "武田薬品工業", "4519.T": "中外製薬", "4021.T": "日産化学",
     "7741.T": "HOYA", "6869.T": "シスメックス", "4543.T": "テルモ",
     "4578.T": "大塚ホールディングス", "7733.T": "オリンパス",
-    # インフラ
     "1802.T": "大林組", "1803.T": "清水建設", "1812.T": "鹿島建設",
     "1801.T": "大成建設", "5444.T": "大和工業", "3407.T": "旭化成",
     "1811.T": "前田建設工業", "1861.T": "熊谷組", "5411.T": "JFEホールディングス",
-    # 金融
     "8306.T": "三菱UFJ", "8316.T": "三井住友FG", "8411.T": "みずほFG",
     "8591.T": "オリックス", "8001.T": "伊藤忠商事",
     "7164.T": "全国保証", "8750.T": "第一生命HD", "8725.T": "MS&AD",
-    # レアアース
     "5707.T": "東邦亜鉛", "5706.T": "三井金属鉱業", "5713.T": "住友金属鉱山",
     "5714.T": "DOWAホールディングス", "5741.T": "UACJ", "3436.T": "SUMCO",
     "4042.T": "東ソー", "4183.T": "三井化学", "5019.T": "出光興産",
     "1662.T": "石油資源開発", "7746.T": "岡本硝子", "7485.T": "岡谷鋼機",
     "5541.T": "大平洋金属", "4004.T": "レゾナックHD", "5857.T": "AREホールディングス",
     "5802.T": "住友電気工業", "5801.T": "古河電気工業", "5711.T": "三菱マテリアル",
-    # スタートアップ
     "3692.T": "FFRIセキュリティ", "3697.T": "SHIFT", "3915.T": "テラスカイ",
     "3923.T": "ラクス", "3984.T": "ユーザーローカル", "3993.T": "PKSHA Technology",
     "3994.T": "マネーフォワード", "4180.T": "Appier Group", "4194.T": "ビジョナル",
@@ -94,8 +108,42 @@ STOCK_NAME_MAP = {
     "8789.T": "フィンテック グローバル", "9158.T": "シーユーシー",
     "9168.T": "ライズ・コンサルティング・グループ", "9211.T": "エフ・コード",
     "9552.T": "クオンツ総研ホールディングス", "3668.T": "コロプラ",
-    "3989.T": "シェアリングテクノロジー", "6562.T": "ジーニー",
+    "3989.T": "シェアリングテクノロジー",
 }
+
+
+def load_price_cache() -> dict | None:
+    """キャッシュが有効なら返す（18時間以内）"""
+    if not PRICE_CACHE_PATH.exists():
+        return None
+    try:
+        with open(PRICE_CACHE_PATH, "rb") as f:
+            cache = pickle.load(f)
+        cached_at = cache.get("_cached_at")
+        if cached_at is None:
+            return None
+        elapsed = (datetime.now() - cached_at).total_seconds() / 3600
+        if elapsed < CACHE_EXPIRE_HOURS:
+            logger.info(f"💾 価格キャッシュ使用 (経過:{elapsed:.1f}h / 有効:{CACHE_EXPIRE_HOURS}h) 銘柄数:{len(cache)-1}")
+            return {k: v for k, v in cache.items() if k != "_cached_at"}
+        else:
+            logger.info(f"⏰ 価格キャッシュ期限切れ (経過:{elapsed:.1f}h) → 再取得")
+            return None
+    except Exception as e:
+        logger.warning(f"キャッシュ読み込みエラー: {e}")
+        return None
+
+
+def save_price_cache(data: dict):
+    """価格データをキャッシュに保存"""
+    try:
+        PRICE_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        cache = {"_cached_at": datetime.now(), **data}
+        with open(PRICE_CACHE_PATH, "wb") as f:
+            pickle.dump(cache, f)
+        logger.info(f"💾 価格キャッシュ保存: {len(data)}銘柄 → {PRICE_CACHE_PATH}")
+    except Exception as e:
+        logger.warning(f"キャッシュ保存エラー: {e}")
 
 
 class DataFetcher:
@@ -106,7 +154,6 @@ class DataFetcher:
         self.history_days = history_days
         self.end_date = datetime.now()
         self.start_date = self.end_date - timedelta(days=history_days)
-
         self.api_key = os.environ.get("JQUANTS_API_KEY", "")
         if not self.api_key:
             logger.error("JQUANTS_API_KEY が設定されていません")
@@ -117,12 +164,10 @@ class DataFetcher:
         return {"x-api-key": self.api_key}
 
     def _to_code(self, ticker: str) -> str:
-        """7011.T → 70110 形式に変換"""
         code = ticker.replace(".T", "")
         return code + "0" if len(code) == 4 else code
 
     def get_price_history(self, ticker: str) -> Optional[pd.DataFrame]:
-        """株価履歴を取得（V2 API）"""
         if not self.api_key:
             return None
         try:
@@ -140,44 +185,30 @@ class DataFetcher:
             if res.status_code != 200:
                 logger.warning(f"株価取得失敗({ticker}): {res.status_code} {res.text[:100]}")
                 return None
-
             data = res.json().get("data", [])
             if not data:
                 logger.warning(f"株価データなし: {ticker}")
                 return None
-
             df = pd.DataFrame(data)
-
-            # V2: 調整後カラムがあれば優先使用
-            raw_cols = pd.DataFrame(data).columns.tolist()
+            raw_cols = df.columns.tolist()
             if "AdjC" in raw_cols:
-                rename = {
-                    "Date": "date", "AdjO": "open", "AdjH": "high",
-                    "AdjL": "low", "AdjC": "close", "AdjVo": "volume",
-                }
+                rename = {"Date": "date", "AdjO": "open", "AdjH": "high",
+                          "AdjL": "low", "AdjC": "close", "AdjVo": "volume"}
             else:
-                rename = {
-                    "Date": "date", "O": "open", "H": "high",
-                    "L": "low", "C": "close", "Vo": "volume",
-                }
-
+                rename = {"Date": "date", "O": "open", "H": "high",
+                          "L": "low", "C": "close", "Vo": "volume"}
             df = df.rename(columns=rename)
             df["date"] = pd.to_datetime(df["date"])
             df = df.set_index("date").sort_index()
             df = df[["open", "high", "low", "close", "volume"]].dropna()
             return df
-
         except Exception as e:
             logger.error(f"株価履歴エラー({ticker}): {e}")
             return None
 
     def get_company_name(self, ticker: str) -> str:
-        """銘柄名を取得（静的マップ優先 → J-Quants API → ticker）"""
-        # ① 静的マップから取得（最速・最確実）
         if ticker in STOCK_NAME_MAP:
             return STOCK_NAME_MAP[ticker]
-
-        # ② J-Quants API
         if self.api_key:
             try:
                 code = self._to_code(ticker)
@@ -192,29 +223,20 @@ class DataFetcher:
                     items = res.json().get("data", [])
                     if items:
                         item = items[0]
-                        name = (
-                            item.get("CompanyName") or
-                            item.get("CompanyNameEnglish") or
-                            item.get("Name") or
-                            item.get("name")
-                        )
+                        name = (item.get("CompanyName") or item.get("CompanyNameEnglish")
+                                or item.get("Name") or item.get("name"))
                         if name:
                             return name
             except Exception as e:
                 logger.warning(f"銘柄名API取得エラー({ticker}): {e}")
-
-        # ③ フォールバック: ticker そのまま
         return ticker
 
     def get_stock_info(self, ticker: str) -> Optional[dict]:
-        """銘柄情報を取得（V2 API）"""
         if not self.api_key:
             return None
         try:
             code = self._to_code(ticker)
             today = datetime.now().strftime("%Y%m%d")
-
-            # 銘柄マスタ（V2・dateパラメータ付き）
             res = requests.get(
                 f"{self.BASE_URL}/v2/equities/master",
                 headers=self._headers(),
@@ -226,70 +248,44 @@ class DataFetcher:
                 items = res.json().get("data", [])
                 if items:
                     item = items[0]
-                    api_name = (
-                            item.get("CompanyName") or
-                            item.get("CompanyNameEnglish") or
-                            item.get("Name") or
-                            item.get("name")
-                        )
+                    api_name = (item.get("CompanyName") or item.get("CompanyNameEnglish")
+                                or item.get("Name") or item.get("name"))
                     info = {
                         "name": api_name or STOCK_NAME_MAP.get(ticker, ticker),
                         "sector": item.get("Sector17CodeName", "不明"),
                         "industry": item.get("Sector33CodeName", "不明"),
                         "market": item.get("MarketCodeName", ""),
                     }
-
-            # 株価履歴取得
             history = self.get_price_history(ticker)
-            current_price = 0
-            volume = 0
-            avg_volume = 0
-            week52_high = 0
-            week52_low = 0
+            current_price = volume = avg_volume = week52_high = week52_low = 0
             if history is not None and not history.empty:
                 current_price = float(history["close"].iloc[-1])
-                volume = float(history["volume"].iloc[-1])
-                avg_volume = float(history["volume"].mean())
-                week52_high = float(history["high"].max())
-                week52_low = float(history["low"].min())
-
+                volume        = float(history["volume"].iloc[-1])
+                avg_volume    = float(history["volume"].mean())
+                week52_high   = float(history["high"].max())
+                week52_low    = float(history["low"].min())
             return {
-                "ticker": ticker,
-                "name": info.get("name", ticker),
-                "sector": info.get("sector", "不明"),
-                "industry": info.get("industry", "不明"),
-                "current_price": current_price,
-                "market_cap": 0,
-                "volume": volume,
-                "avg_volume": avg_volume,
-                "per": None, "pbr": None, "psr": None,
-                "ev_ebitda": None, "roe": None, "roa": None,
-                "profit_margin": None, "operating_margin": None,
+                "ticker": ticker, "name": info.get("name", ticker),
+                "sector": info.get("sector", "不明"), "industry": info.get("industry", "不明"),
+                "current_price": current_price, "market_cap": 0,
+                "volume": volume, "avg_volume": avg_volume,
+                "per": None, "pbr": None, "psr": None, "ev_ebitda": None,
+                "roe": None, "roa": None, "profit_margin": None, "operating_margin": None,
                 "revenue_growth": None, "earnings_growth": None,
-                "dividend_yield": None, "debt_to_equity": None,
-                "current_ratio": None,
-                "week52_high": week52_high,
-                "week52_low": week52_low,
+                "dividend_yield": None, "debt_to_equity": None, "current_ratio": None,
+                "week52_high": week52_high, "week52_low": week52_low,
             }
-
         except Exception as e:
             logger.error(f"銘柄情報エラー({ticker}): {e}")
             return None
 
     def get_margin_trading(self, ticker: str) -> Optional[dict]:
-        """信用取引週末残高を取得（V2 API・Standardプラン）
-
-        エンドポイント: /v2/markets/margin-interest
-        認証: x-api-key（V2標準）
-        フィールド: LongVol（買残）/ ShrtVol（売残）
-        """
         if not self.api_key:
             return None
         try:
             code = self._to_code(ticker)
             from_date = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
-            to_date = datetime.now().strftime("%Y-%m-%d")
-
+            to_date   = datetime.now().strftime("%Y-%m-%d")
             res = requests.get(
                 f"{self.BASE_URL}/v2/markets/margin-interest",
                 headers=self._headers(),
@@ -297,31 +293,21 @@ class DataFetcher:
                 timeout=10
             )
             if res.status_code != 200:
-                logger.warning(f"信用残取得失敗({ticker}): {res.status_code}")
                 return None
-
             data = res.json().get("data", [])
             if not data:
                 return None
-
-            latest = data[-1]
-            long_vol  = float(latest.get("LongVol",  0) or 0)
-            shrt_vol  = float(latest.get("ShrtVol",  0) or 0)
+            latest     = data[-1]
+            long_vol   = float(latest.get("LongVol", 0) or 0)
+            shrt_vol   = float(latest.get("ShrtVol", 0) or 0)
             margin_ratio = round(long_vol / shrt_vol, 2) if shrt_vol > 0 else None
-
-            return {
-                "margin_ratio": margin_ratio,
-                "long_margin":  long_vol,
-                "short_margin": shrt_vol,
-                "date": latest.get("Date", ""),
-            }
-
+            return {"margin_ratio": margin_ratio, "long_margin": long_vol,
+                    "short_margin": shrt_vol, "date": latest.get("Date", "")}
         except Exception as e:
             logger.warning(f"信用残取得エラー({ticker}): {e}")
             return None
 
     def get_valid_tse_codes(self) -> set:
-        """J-Quants masterから東証上場中の全銘柄コードを取得"""
         if not self.api_key:
             return set()
         try:
@@ -333,15 +319,9 @@ class DataFetcher:
                 timeout=30
             )
             if res.status_code != 200:
-                logger.warning(f"masterAPI失敗: {res.status_code}")
                 return set()
             items = res.json().get("data", [])
-            # 5桁コード（末尾0）をセットで返す
-            codes = set()
-            for item in items:
-                code = str(item.get("Code", ""))
-                if code:
-                    codes.add(code)
+            codes = {str(item.get("Code", "")) for item in items if item.get("Code")}
             logger.info(f"東証上場銘柄数: {len(codes)}")
             return codes
         except Exception as e:
@@ -349,22 +329,30 @@ class DataFetcher:
             return set()
 
     def get_multiple_stocks(self, tickers: list) -> dict:
-        """複数銘柄を一括取得（東証銘柄のみフィルタリング）"""
-        results = {}
+        """複数銘柄を一括取得（キャッシュ対応・東証銘柄フィルタリング）"""
 
-        # 東証上場銘柄リストを事前取得してフィルタリング
+        # ① キャッシュ確認（18時間以内なら再取得しない）
+        cached = load_price_cache()
+        if cached is not None:
+            results = {t: cached[t] for t in tickers if t in cached}
+            logger.info(f"💾 キャッシュから{len(results)}銘柄を取得 (APIコール: 0回)")
+            return results
+
+        # ② キャッシュなし → J-Quantsから取得
+        results = {}
         valid_codes = self.get_valid_tse_codes()
         if valid_codes:
             tse_tickers = []
             skipped = []
             for t in tickers:
-                code = self._to_code(t)  # 7011 → 70110
+                code = self._to_code(t)
                 if code in valid_codes:
                     tse_tickers.append(t)
                 else:
                     skipped.append(t)
             if skipped:
-                logger.warning(f"非東証銘柄をスキップ({len(skipped)}件): {skipped[:5]}{'...' if len(skipped)>5 else ''}")
+                logger.warning(f"非東証銘柄をスキップ({len(skipped)}件): "
+                                f"{skipped[:5]}{'...' if len(skipped)>5 else ''}")
             tickers = tse_tickers
         else:
             logger.warning("masterAPI取得失敗。フィルタリングなしで実行します")
@@ -374,33 +362,30 @@ class DataFetcher:
 
         for i, ticker in enumerate(tickers, 1):
             logger.info(f"データ取得中... ({i}/{total}): {ticker}")
-
             info = self.get_stock_info(ticker)
             if not info:
                 continue
-
             history = self.get_price_history(ticker)
             if history is None:
                 continue
-
             info["price_history"] = history
-
             margin = self.get_margin_trading(ticker)
             info["margin_ratio"] = margin["margin_ratio"] if margin else None
-
             results[ticker] = info
             time.sleep(0.6)
 
         logger.success(f"取得完了: {len(results)}/{total} 銘柄")
+
+        # ③ キャッシュに保存（predict.py と共有）
+        if results:
+            save_price_cache(results)
+
         return results
 
     def get_market_overview(self) -> dict:
-        """市場概況（日経平均・TOPIX）を取得"""
         overview = {}
         from_date = (datetime.now() - timedelta(days=7)).strftime("%Y%m%d")
-        to_date = datetime.now().strftime("%Y%m%d")
-
-        # TOPIX
+        to_date   = datetime.now().strftime("%Y%m%d")
         try:
             res = requests.get(
                 f"{self.BASE_URL}/v2/indices/bars/daily/topix",
@@ -419,8 +404,6 @@ class DataFetcher:
                     }
         except Exception as e:
             logger.warning(f"TOPIX取得エラー: {e}")
-
-        # 日経平均
         try:
             res2 = requests.get(
                 f"{self.BASE_URL}/v2/indices/bars/daily",
@@ -439,13 +422,10 @@ class DataFetcher:
                     }
         except Exception as e:
             logger.warning(f"日経平均取得エラー: {e}")
-
         return overview
 
 
 class MarginScorer:
-    """信用倍率スコアリング"""
-
     def score(self, margin_ratio: float) -> tuple:
         if margin_ratio is None:    return 0,  "信用倍率データなし"
         if margin_ratio <= 1.0:     return 10, f"🟢 信用倍率良好({margin_ratio:.1f}倍）"
