@@ -49,6 +49,16 @@ jobs:
           cp config/settings.yaml config/settings_runtime.yaml
           sed -i "s|YOUR_DISCORD_WEBHOOK_URL|${{ secrets.DISCORD_WEBHOOK_URL }}|g" config/settings_runtime.yaml
 
+      - name: 💾 価格キャッシュをダウンロード（前回Run分）
+        uses: dawidd6/action-download-artifact@v3
+        continue-on-error: true
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: daily_scan.yml
+          name: price-cache
+          path: data/cache/
+          search_artifacts: true
+
       - name: 🚀 スクリーニング実行
         env:
           JQUANTS_API_KEY: ${{ secrets.JQUANTS_API_KEY }}
@@ -83,6 +93,15 @@ jobs:
           else
             echo "MLモデル未検出 - スキップ"
           fi
+
+      - name: 💾 価格キャッシュをArtifactに保存
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: price-cache
+          path: data/cache/price_cache.pkl
+          retention-days: 1
+          overwrite: true
 
       - name: 💾 結果の保存
         uses: actions/upload-artifact@v4
