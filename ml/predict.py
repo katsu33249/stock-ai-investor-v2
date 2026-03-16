@@ -30,6 +30,8 @@ MODEL_PATH       = Path("data/ml/model.pkl")
 CACHE_PATH       = Path("data/cache/fundamental_cache.json")
 CONFIG_PATH      = Path("config/policy_keywords.yaml")
 SIGNAL_PATH      = Path("data/ml/today_signals.json")
+PRICE_CACHE_PATH = Path("data/cache/price_cache.pkl")
+CACHE_EXPIRE_HOURS = 18  # キャッシュ有効時間
 TRADES_PATH      = Path("data/ml/demo_trades.csv")
 SIGNAL_THRESHOLD = 0.55   # バックテストで最適化済み
 TOP_N            = 5      # Discord通知する上位銘柄数
@@ -159,7 +161,44 @@ def get_company_name_yf(ticker: str) -> str:
 
 
 # ============================================================
-# 3. J-Quants 価格データ取得（直近90日）
+# 3. 価格キャッシュ管理
+# ============================================================
+def load_price_cache() -> dict | None:
+    """キャッシュが有効なら返す（18時間以内）"""
+    if not PRICE_CACHE_PATH.exists():
+        return None
+    try:
+        with open(PRICE_CACHE_PATH, "rb") as f:
+            cache = pickle.load(f)
+        cached_at = cache.get("_cached_at")
+        if cached_at is None:
+            return None
+        elapsed = (datetime.now() - cached_at).total_seconds() / 3600
+        if elapsed < CACHE_EXPIRE_HOURS:
+            logger.info(f"価格キャッシュ使用 (経過:{elapsed:.1f}時間 / 有効:{CACHE_EXPIRE_HOURS}時間) 銘柄数:{len(cache)-1}")
+            return {k: v for k, v in cache.items() if k != "_cached_at"}
+        else:
+            logger.info(f"価格キャッシュ期限切れ (経過:{elapsed:.1f}時間) → 再取得")
+            return None
+    except Exception as e:
+        logger.warning(f"キャッシュ読み込みエラー: {e}")
+        return None
+
+
+def save_price_cache(prices: dict):
+    """価格データをキャッシュに保存"""
+    try:
+        PRICE_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        cache = {"_cached_at": datetime.now(), **prices}
+        with open(PRICE_CACHE_PATH, "wb") as f:
+            pickle.dump(cache, f)
+        logger.info(f"価格キャッシュ保存: {len(prices)}銘柄 → {PRICE_CACHE_PATH}")
+    except Exception as e:
+        logger.warning(f"キャッシュ保存エラー: {e}")
+
+
+# ============================================================
+# 4. J-Quants 価格データ取得（直近90日）
 # ============================================================
 def fetch_prices(tickers: list[str]) -> dict[str, pd.DataFrame]:
     """各銘柄の直近90日の価格を取得"""
@@ -316,10 +355,12 @@ def calc_features(ticker: str, df: pd.DataFrame, fund: dict) -> dict | None:
 # ============================================================
 # 4. TOPIX直近リターンを取得して追加
 # ============================================================
-def fetch_topix_returns() -> tuple[float, float]:
+def fetch_topix_data() -> dict:
+    """TOPIXデータ取得（5d/20dリターン + 25MA判定）APIコール1回のみ"""
     import requests
     end_date   = datetime.now().strftime("%Y-%m-%d")
-    start_date = (datetime.now() - timedelta(days=40)).strftime("%Y-%m-%d")
+    start_date = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
+    result = {"r5": 0.0, "r20": 0.0, "above_ma25": True, "current": 0.0}
     try:
         resp = requests.get(
             "https://api.jquants.com/v2/indices/bars/daily/topix",
@@ -330,30 +371,58 @@ def fetch_topix_returns() -> tuple[float, float]:
         body = resp.json()
         data = body.get("data", body.get("indices", body.get("topix", [])))
         if not data:
-            logger.warning(f"TOPIX レスポンスキー: {list(body.keys())}")
-            return 0.0, 0.0
-        # 最初の要素のキーを確認してclose値を取得
-        sample = data[0]
-        close_key = next((k for k in ["C", "Close", "close", "AdjustmentClose", "indexClose"] if k in sample), None)
+            return result
+        sample    = data[0]
+        close_key = next((k for k in ["C", "Close", "close", "AdjustmentClose"] if k in sample), None)
         if not close_key:
             logger.warning(f"TOPIX closeキー不明: {list(sample.keys())}")
-            return 0.0, 0.0
+            return result
         closes = [float(d[close_key]) for d in data if d.get(close_key)]
         if len(closes) < 6:
-            return 0.0, 0.0
-        r5  = closes[-1] / closes[-6]  - 1 if len(closes) >= 6 else 0.0
-        r20 = closes[-1] / closes[-21] - 1 if len(closes) >= 21 else 0.0
-        logger.info(f"TOPIX closeキー: '{close_key}' データ数:{len(closes)}")
-        return round(r5, 4), round(r20, 4)
+            return result
+        current   = closes[-1]
+        ma25      = sum(closes[-25:]) / min(25, len(closes))
+        r5        = current / closes[-6]  - 1 if len(closes) >= 6  else 0.0
+        r20       = current / closes[-21] - 1 if len(closes) >= 21 else 0.0
+        above_ma25 = current >= ma25
+        logger.info(f"TOPIX: {current:.0f} 25MA:{ma25:.0f} {'✅上' if above_ma25 else '⚠️下'} 5d:{r5:+.2%} 20d:{r20:+.2%}")
+        result = {"r5": round(r5,4), "r20": round(r20,4), "above_ma25": above_ma25, "current": round(current,2)}
     except Exception as e:
         logger.warning(f"TOPIX取得エラー: {e}")
-        return 0.0, 0.0
+    return result
+
+
+def fetch_nikkei_futures() -> dict:
+    """日経225先物をstooq.comから取得（APIトークン不要・無料）"""
+    import requests
+    result = {"price": 0.0, "change_pct": 0.0}
+    try:
+        # stooq.com: nk225f=日経225先物
+        resp = requests.get(
+            "https://stooq.com/q/l/?s=nk225f.cmefm&f=sd2t2ohlcv&h&e=csv",
+            timeout=10
+        )
+        lines = resp.text.strip().split("
+")
+        if len(lines) >= 2:
+            cols  = lines[0].split(",")
+            vals  = lines[1].split(",")
+            row   = dict(zip(cols, vals))
+            close = float(row.get("Close", 0))
+            open_ = float(row.get("Open", close))
+            if close > 0 and open_ > 0:
+                chg = (close - open_) / open_
+                result = {"price": close, "change_pct": round(chg, 4)}
+                logger.info(f"日経先物: {close:,.0f} ({chg:+.2%})")
+    except Exception as e:
+        logger.warning(f"日経先物取得エラー: {e}")
+    return result
 
 
 # ============================================================
 # 5. 予測実行
 # ============================================================
-def predict(features_list: list[dict], topix_r5: float, topix_r20: float) -> pd.DataFrame:
+def predict(features_list: list[dict], topix: dict) -> pd.DataFrame:
     """モデルで予測確率を計算"""
     with open(MODEL_PATH, "rb") as f:
         saved = pickle.load(f)
@@ -363,8 +432,8 @@ def predict(features_list: list[dict], topix_r5: float, topix_r20: float) -> pd.
     df = pd.DataFrame(features_list)
 
     # TOPIX追加
-    df["topix_return_5d"]  = topix_r5
-    df["topix_return_20d"] = topix_r20
+    df["topix_return_5d"]  = topix.get("r5", 0.0)
+    df["topix_return_20d"] = topix.get("r20", 0.0)
 
     X = df[feat_cols].replace([np.inf, -np.inf], np.nan).fillna(0).values
     df["pred_prob"] = model.predict(X)
@@ -375,25 +444,36 @@ def predict(features_list: list[dict], topix_r5: float, topix_r20: float) -> pd.
 # ============================================================
 # 6. Discord通知
 # ============================================================
-def notify_discord(signals: pd.DataFrame, today_str: str, name_map: dict = {}):
+def notify_discord(signals: pd.DataFrame, today_str: str, name_map: dict = {},
+                   topix: dict = {}, nikkei_f: dict = {}):
     import requests
 
+    # 市場環境ヘッダー
+    topix_mark   = "✅25MA上" if topix.get("above_ma25", True) else "⚠️25MA下"
+    nk_price     = nikkei_f.get("price", 0.0)
+    nk_chg       = nikkei_f.get("change_pct", 0.0)
+    nk_emoji     = "🔴" if nk_chg <= -0.01 else ("🟢" if nk_chg >= 0.01 else "⚪")
+    nk_str       = f"{nk_price:,.0f} ({nk_chg:+.1%}) {nk_emoji}" if nk_price > 0 else "取得失敗"
+    market_line  = f"📊 TOPIX:{topix_mark}  日経先物:{nk_str}"
+
     if signals.empty:
-        msg = f"🤖 **ML シグナル {today_str}**\n該当銘柄なし（閾値: {SIGNAL_THRESHOLD}）"
+        msg = f"🤖 **ML シグナル {today_str}**\n{market_line}\n該当銘柄なし（閾値: {SIGNAL_THRESHOLD}）"
     else:
-        lines = [f"🤖 **ML シグナル {today_str}** （閾値: {SIGNAL_THRESHOLD}）", ""]
+        lines = [f"🤖 **ML シグナル {today_str}** （閾値: {SIGNAL_THRESHOLD}）", market_line, ""]
         for i, (_, row) in enumerate(signals.iterrows(), 1):
-            ticker  = row["ticker"]
-            name    = name_map.get(ticker) or get_company_name_yf(ticker)
-            prob    = row["pred_prob"]
-            ret_1d  = row.get("return_1d", 0)
-            rsi     = row.get("rsi14", 0)
-            above_ma5   = row.get("above_ma5", 1.0)
-            ma5_break   = row.get("ma5_breakout", 0.0)
-            ma5_mark    = "🔼5MA抜け " if ma5_break == 1.0 else ("📈5MA上 " if above_ma5 == 1.0 else "")
+            ticker    = row["ticker"]
+            name      = name_map.get(ticker) or get_company_name_yf(ticker)
+            prob      = row["pred_prob"]
+            ret_1d    = row.get("return_1d", 0)
+            rsi       = row.get("rsi14", 0)
+            above_ma5 = row.get("above_ma5", 1.0)
+            ma5_break = row.get("ma5_breakout", 0.0)
+            vol_ratio = row.get("vol_ratio", 1.0)
+            ma5_mark  = "🔼5MA抜け " if ma5_break == 1.0 else ("📈5MA上 " if above_ma5 == 1.0 else "")
+            vol_mark  = "🔥出来高急増 " if vol_ratio >= 2.0 else ""
             lines.append(
                 f"**{i}. {name} ({ticker}.T)**  確率:{prob:.0%}  "
-                f"前日:{ret_1d:+.1%}  RSI:{rsi:.0f}  {ma5_mark}"
+                f"前日:{ret_1d:+.1%}  RSI:{rsi:.0f}  {ma5_mark}{vol_mark}"
             )
         msg = "\n".join(lines)
 
@@ -529,12 +609,17 @@ def main():
     # 会社名マップ取得
     name_map  = fetch_company_names()
 
-    # 価格データ取得
-    prices = fetch_prices(tickers)
+    # 価格データ取得（キャッシュ優先）
+    prices = load_price_cache()
+    if prices is None:
+        prices = fetch_prices(tickers)
+        save_price_cache(prices)
+    else:
+        logger.info("→ APIコールをスキップしました")
 
     # TOPIX
-    topix_r5, topix_r20 = fetch_topix_returns()
-    logger.info(f"TOPIX: 5d={topix_r5:+.2%} 20d={topix_r20:+.2%}")
+    topix    = fetch_topix_data()
+    nikkei_f = fetch_nikkei_futures()
 
     # ファンダメンタルキャッシュ読み込み
     fund_cache = {}
@@ -558,7 +643,7 @@ def main():
         return
 
     # 予測
-    pred_df = predict(features_list, topix_r5, topix_r20)
+    pred_df = predict(features_list, topix)
 
     # 前日シグナルを読み込み（重複除外用）
     prev_tickers = set()
@@ -585,7 +670,9 @@ def main():
             all_signals = ma5_filtered
 
     new_signals = all_signals[~all_signals["ticker"].isin(prev_tickers)]
-    signals = new_signals.head(TOP_N)
+    # 市場環境フィルター: TOPIX25MA以下なら最大3件に絞る
+    max_signals = 3 if not topix.get("above_ma25", True) else TOP_N
+    signals = new_signals.head(max_signals)
     logger.info(f"シグナル銘柄数: {len(signals)} 新規 / {len(all_signals)} 全体 (閾値:{SIGNAL_THRESHOLD})")
 
     # 保存
@@ -601,7 +688,7 @@ def main():
 
     # Discord通知
     if DISCORD_WEBHOOK:
-        notify_discord(signals, today_str, name_map)
+        notify_discord(signals, today_str, name_map, topix, nikkei_f)
     else:
         logger.warning("DISCORD_WEBHOOK_URL が未設定")
 
