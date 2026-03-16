@@ -402,8 +402,7 @@ def fetch_nikkei_futures() -> dict:
             "https://stooq.com/q/l/?s=nk225f.cmefm&f=sd2t2ohlcv&h&e=csv",
             timeout=10
         )
-        lines = resp.text.strip().split("
-")
+        lines = resp.text.strip().split("\n")
         if len(lines) >= 2:
             cols  = lines[0].split(",")
             vals  = lines[1].split(",")
