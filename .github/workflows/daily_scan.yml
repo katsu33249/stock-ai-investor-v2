@@ -121,6 +121,7 @@ jobs:
           file_pattern: "data/results/*.csv data/ml/today_signals.json data/ml/demo_trades.csv"
           commit_user_name: "Stock AI Bot"
           commit_user_email: "bot@github.actions"
+          pull_options: "--rebase"
 
   # 月1回 EDINET DB財務データ更新ジョブ
   update-fundamentals:
@@ -154,10 +155,11 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         if: success()
         with:
-          commit_message: "🏦 月次財務データ更新"
+          commit_message: "🏦 財務データ更新"
           file_pattern: "data/cache/*.json"
           commit_user_name: "Stock AI Bot"
           commit_user_email: "bot@github.actions"
+          pull_options: "--rebase"
 
   notify-on-failure:
     name: エラー通知
