@@ -350,12 +350,18 @@ def fetch_nikkei_futures() -> dict:
             cols  = lines[0].split(",")
             vals  = lines[1].split(",")
             row   = dict(zip(cols, vals))
-            close = float(row.get("Close", 0))
-            open_ = float(row.get("Open", close))
-            if close > 0 and open_ > 0:
-                chg = (close - open_) / open_
-                result = {"price": close, "change_pct": round(chg, 4)}
-                logger.info(f"日経先物: {close:,.0f} ({chg:+.2%})")
+            close_str = row.get("Close", "0")
+            open_str  = row.get("Open", "0")
+            # N/D は取得不可（休日・時間外）→ スキップ
+            if close_str in ("N/D", "N/A", "", "0") or open_str in ("N/D", "N/A", ""):
+                logger.info("日経先物: データなし（休日または時間外）")
+            else:
+                close = float(close_str)
+                open_ = float(open_str) if open_str else close
+                if close > 0 and open_ > 0:
+                    chg = (close - open_) / open_
+                    result = {"price": close, "change_pct": round(chg, 4)}
+                    logger.info(f"日経先物: {close:,.0f} ({chg:+.2%})")
     except Exception as e:
         logger.warning(f"日経先物取得エラー: {e}")
     return result
@@ -552,12 +558,34 @@ def main():
     name_map  = fetch_company_names()
 
     # 価格データ取得（キャッシュ優先）
-    prices = load_price_cache()
-    if prices is None:
+    raw_cache = load_price_cache()
+    if raw_cache is None:
         prices = fetch_prices(tickers)
         save_price_cache(prices)
     else:
         logger.info("→ APIコールをスキップしました")
+        # main.py のキャッシュ形式に対応:
+        # {ticker: DataFrame} または {ticker: {"price_history": DataFrame, ...}}
+        prices = {}
+        for ticker, val in raw_cache.items():
+            if isinstance(val, dict) and "price_history" in val:
+                # main.py 形式 → DataFrameを取り出す
+                # predict.py のfetch_prices形式に変換
+                ph = val["price_history"]
+                if ph is not None and not ph.empty:
+                    # predict.py はAdjustmentClose列を期待
+                    import pandas as pd
+                    df2 = ph.reset_index()
+                    df2 = df2.rename(columns={
+                        "date": "Date",
+                        "close": "AdjustmentClose",
+                        "volume": "AdjustmentVolume",
+                    })
+                    df2["Date"] = pd.to_datetime(df2["Date"])
+                    prices[ticker] = df2
+            else:
+                # predict.py 形式（そのまま使用）
+                prices[ticker] = val
 
     # TOPIX
     topix    = fetch_topix_data()
