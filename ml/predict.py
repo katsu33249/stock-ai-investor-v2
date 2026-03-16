@@ -96,11 +96,18 @@ def _load_stock_names() -> dict:
 STOCK_NAME_MAP = _load_stock_names()
 
 def fetch_company_names() -> dict[str, str]:
-    return STOCK_NAME_MAP
+    """4桁コード → 会社名 の辞書を返す（.T付き・なし両対応）"""
+    # .T付きでもアクセスできるよう両方のキーを持つ辞書を返す
+    result = dict(STOCK_NAME_MAP)
+    for k, v in STOCK_NAME_MAP.items():
+        result[f"{k}.T"] = v  # "7011.T" → "三菱重工業" も追加
+    return result
 
 
 def get_company_name_yf(ticker: str) -> str:
-    return STOCK_NAME_MAP.get(ticker, ticker)
+    # .T を除いた4桁コードで検索
+    code = ticker.replace(".T", "")
+    return STOCK_NAME_MAP.get(code, STOCK_NAME_MAP.get(ticker, ticker))
 
 
 # ============================================================
