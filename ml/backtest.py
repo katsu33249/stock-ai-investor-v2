@@ -180,6 +180,13 @@ def run_backtest(df: pd.DataFrame, threshold: float) -> dict:
             held_tickers = {p["ticker"] for p in open_pos}
             today_signals = today_signals[~today_signals["ticker"].isin(held_tickers)]
 
+            # 決算発表±3日の取引除外
+            if "days_since_earnings" in bt.columns:
+                today_signals = today_signals[
+                    (today_signals["days_since_earnings"].isna()) |
+                    (today_signals["days_since_earnings"] > 3)
+                ]
+
             for _, sig in today_signals.head(slots).iterrows():
                 # 確率に応じたポジションサイジング
                 prob = float(sig["pred_prob"])
