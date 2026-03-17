@@ -60,13 +60,13 @@ def get_prime_tickers() -> list:
 
     while True:
         res = requests.get(
-            f"{JQUANTS_BASE_URL}/equities/list",
+            f"{JQUANTS_BASE_URL}/equities/master",
             headers=_headers(),
             params=params,
             timeout=30
         )
         if res.status_code != 200:
-            logger.error(f"銘柄リスト取得失敗: {res.status_code}")
+            logger.error(f"銘柄リスト取得失敗: {res.status_code} {res.text[:200]}")
             break
 
         body = res.json()
@@ -79,10 +79,14 @@ def get_prime_tickers() -> list:
         params["pagination_key"] = pagination_key
         time.sleep(SLEEP_SEC)
 
-    # 東証プライム（market_code=0111）のみ絞り込み
+    # 東証プライム（MarketCodeName or MarketCode）のみ絞り込み
     prime = [
         d for d in all_data
-        if str(d.get("MarketCode", "")) == "0111"
+        if (
+            str(d.get("MarketCode", "")) == "0111" or
+            "プライム" in str(d.get("MarketCodeName", "")) or
+            "Prime" in str(d.get("MarketCodeName", ""))
+        )
         and d.get("Code")
     ]
     # 5桁コードを4桁+.T形式に変換
