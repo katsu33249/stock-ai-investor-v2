@@ -288,6 +288,63 @@ def calc_features(df: pd.DataFrame) -> pd.DataFrame:
     d["from_high"] = (d["close"] - d["high_52w"]) / d["high_52w"]
     d["from_low"]  = (d["close"] - d["low_52w"])  / d["low_52w"]
 
+    # ① RCI（順位相関指数）9日・26日
+    def calc_rci(series: pd.Series, period: int) -> pd.Series:
+        def _rci(x):
+            n = len(x)
+            price_rank = pd.Series(x).rank(ascending=False)
+            date_rank  = pd.Series(range(1, n + 1))
+            d_sq = ((date_rank - price_rank) ** 2).sum()
+            return (1 - 6 * d_sq / (n * (n ** 2 - 1))) * 100
+        return series.rolling(period).apply(_rci, raw=True)
+
+    d["rci9"]  = calc_rci(d["close"], 9)
+    d["rci26"] = calc_rci(d["close"], 26)
+
+    # ② 一目均衡表
+    high9   = d["high"].rolling(9).max()
+    low9    = d["low"].rolling(9).min()
+    high26  = d["high"].rolling(26).max()
+    low26   = d["low"].rolling(26).min()
+    high52  = d["high"].rolling(52).max()
+    low52_i = d["low"].rolling(52).min()
+
+    tenkan  = (high9  + low9)  / 2   # 転換線
+    kijun   = (high26 + low26) / 2   # 基準線
+    senkou_a = ((tenkan + kijun) / 2).shift(26)   # 先行スパンA
+    senkou_b = ((high52 + low52_i) / 2).shift(26) # 先行スパンB
+
+    d["ichi_tenkan_dev"] = (d["close"] - tenkan) / tenkan   # 転換線からの乖離
+    d["ichi_kijun_dev"]  = (d["close"] - kijun)  / kijun    # 基準線からの乖離
+    cloud_top = senkou_a.combine(senkou_b, max)
+    cloud_bot = senkou_a.combine(senkou_b, min)
+    d["ichi_above_cloud"] = (d["close"] > cloud_top).astype(int)  # 雲の上か
+
+    # ③ ADX（トレンド強度）14日
+    high_diff = d["high"].diff()
+    low_diff  = d["low"].diff()
+    plus_dm   = high_diff.where((high_diff > 0) & (high_diff > -low_diff), 0.0)
+    minus_dm  = (-low_diff).where((-low_diff > 0) & (-low_diff > high_diff), 0.0)
+
+    tr = pd.concat([
+        d["high"] - d["low"],
+        (d["high"] - d["close"].shift()).abs(),
+        (d["low"]  - d["close"].shift()).abs()
+    ], axis=1).max(axis=1)
+
+    atr14    = tr.ewm(span=14, adjust=False).mean()
+    plus_di  = 100 * plus_dm.ewm(span=14, adjust=False).mean()  / atr14.replace(0, np.nan)
+    minus_di = 100 * minus_dm.ewm(span=14, adjust=False).mean() / atr14.replace(0, np.nan)
+    dx       = (100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan))
+    d["adx14"] = dx.ewm(span=14, adjust=False).mean()
+
+    # ⑤ 出来高急増持続日数
+    vol_surge = (d["vol_ratio"] >= 2.0).astype(int)
+    # 連続カウント（surge が続く間カウントアップ）
+    d["vol_surge_days"] = vol_surge.groupby(
+        (vol_surge != vol_surge.shift()).cumsum()
+    ).cumcount() * vol_surge
+
     return d
 
 
@@ -385,6 +442,10 @@ def main():
         # 信用倍率
         margin_df = fetch_margin_history(ticker)
         if not margin_df.empty:
+            # ④ 信用買い残変化率（前週比）を追加
+            margin_df = margin_df.sort_values("date").reset_index(drop=True)
+            margin_df["margin_ratio_chg"] = margin_df["margin_ratio"].pct_change(1)
+
             # 週次データを日次にマージ（前方補完）
             price_df = pd.merge_asof(
                 price_df.sort_values("date"),
@@ -393,7 +454,8 @@ def main():
                 direction="backward"
             )
         else:
-            price_df["margin_ratio"] = None
+            price_df["margin_ratio"]     = None
+            price_df["margin_ratio_chg"] = None
 
         # TOPIX結合
         if not topix_df.empty:
@@ -433,8 +495,16 @@ def main():
         "vol_ratio",
         "gc_25_75",
         "from_high", "from_low",
-        # 需給
-        "margin_ratio",
+        # ① RCI
+        "rci9", "rci26",
+        # ② 一目均衡表
+        "ichi_tenkan_dev", "ichi_kijun_dev", "ichi_above_cloud",
+        # ③ ADX
+        "adx14",
+        # ④ 信用買い残変化率
+        "margin_ratio", "margin_ratio_chg",
+        # ⑤ 出来高急増持続日数
+        "vol_surge_days",
         # 地合い
         "topix_return_5d", "topix_return_20d",
         # ファンダメンタル
