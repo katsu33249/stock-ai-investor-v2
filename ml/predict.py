@@ -370,9 +370,12 @@ def predict(features_list: list[dict], topix: dict) -> pd.DataFrame:
         if "lgb" in models:
             preds.append(models["lgb"].predict(X))
         if "xgb" in models:
-            import xgboost as xgb
-            dmat = xgb.DMatrix(X, feature_names=feat_cols)
-            preds.append(models["xgb"].predict(dmat))
+            try:
+                import xgboost as xgb
+                dmat = xgb.DMatrix(X, feature_names=feat_cols)
+                preds.append(models["xgb"].predict(dmat))
+            except ImportError:
+                logger.warning("xgboost未インストール → スキップ")
         if "rf" in models:
             preds.append(models["rf"].predict_proba(np.nan_to_num(X))[:, 1])
         df["pred_prob"] = np.mean(preds, axis=0) if preds else np.zeros(len(X))
