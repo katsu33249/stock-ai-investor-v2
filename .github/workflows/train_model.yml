@@ -34,6 +34,7 @@ jobs:
             xgboost \
             scikit-learn \
             optuna \
+            pyarrow \
             pandas \
             numpy \
             loguru \
