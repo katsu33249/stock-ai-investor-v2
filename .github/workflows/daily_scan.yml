@@ -22,6 +22,7 @@ on:
           - policy
           - quick
           - update_fundamentals
+          - cleanup_trades
 
 jobs:
   stock-scan:
@@ -59,7 +60,12 @@ jobs:
           path: data/cache/
           search_artifacts: true
 
+      - name: 🧹 デモ取引クリーンアップ
+        if: github.event.inputs.mode == 'cleanup_trades'
+        run: python ml/cleanup_trades.py
+
       - name: 🚀 スクリーニング実行
+        if: github.event.inputs.mode != 'cleanup_trades'
         env:
           JQUANTS_API_KEY: ${{ secrets.JQUANTS_API_KEY }}
           EDINET_DB_API_KEY: ${{ secrets.EDINET_DB_API_KEY }}
