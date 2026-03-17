@@ -392,9 +392,21 @@ def notify_discord(signals: pd.DataFrame, today_str: str, name_map: dict = {}, t
             vol_ratio = row.get("vol_ratio", 1.0)
             ma5_mark  = "🔼5MA抜け " if ma5_break == 1.0 else ("📈5MA上 " if above_ma5 == 1.0 else "")
             vol_mark  = "🔥出来高急増 " if vol_ratio >= 2.0 else ""
+
+            # ボリンジャーバンドシグナル
+            bb_pct_val = row.get("bb_pct", 0.5)
+            if bb_pct_val < 0.1 and ret_1d > 0:
+                bb_mark = "📉-2σ反発 "
+            elif bb_pct_val > 0.9 and ret_1d < 0:
+                bb_mark = "📈+2σ反落 "
+            elif 0.45 <= bb_pct_val <= 0.55 and ret_1d > 0:
+                bb_mark = "↩中央反発 "
+            else:
+                bb_mark = ""
+
             lines.append(
                 f"**{i}. {name} ({ticker}.T)**  確率:{prob:.0%}  "
-                f"前日:{ret_1d:+.1%}  RSI:{rsi:.0f}  {ma5_mark}{vol_mark}"
+                f"前日:{ret_1d:+.1%}  RSI:{rsi:.0f}  {ma5_mark}{vol_mark}{bb_mark}"
             )
         msg = "\n".join(lines)
 
