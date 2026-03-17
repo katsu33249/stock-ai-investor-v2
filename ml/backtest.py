@@ -180,7 +180,15 @@ def run_backtest(df: pd.DataFrame, threshold: float) -> dict:
             today_signals = today_signals[~today_signals["ticker"].isin(held_tickers)]
 
             for _, sig in today_signals.head(slots).iterrows():
-                size = capital * POSITION_RATIO
+                # 確率に応じたポジションサイジング
+                prob = float(sig["pred_prob"])
+                if prob >= 0.70:
+                    ratio = POSITION_RATIO * 1.2   # 12%
+                elif prob >= 0.60:
+                    ratio = POSITION_RATIO          # 10%
+                else:
+                    ratio = POSITION_RATIO * 0.8   # 8%
+                size = capital * ratio
                 if size <= 0:
                     continue
                 # 銘柄の行インデックスを記録（将来リターン計算用）
