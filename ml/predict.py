@@ -407,40 +407,48 @@ def notify_discord(signals: pd.DataFrame, today_str: str, name_map: dict = {}, t
 # ============================================================
 HOLD_DAYS_TRADE = 5  # 保有期間（営業日ではなく暦日で近似）
 
-def get_current_price(ticker: str) -> float | None:
-    """当日の終値を取得"""
-    import requests
+def get_current_price(ticker: str, prices: dict = {}) -> float | None:
+    """当日の終値を取得（価格キャッシュから）"""
     try:
-        code = ticker + "0" if len(ticker) == 4 else ticker
-        today = datetime.now().strftime("%Y%m%d")
-        resp = requests.get(
-            "https://api.jquants.com/v2/equities/bars/daily",
-            headers=_headers(),
-            params={"code": code, "from": today, "to": today},
-            timeout=10
-        )
-        data = resp.json().get("data", [])
-        if data:
-            row = data[-1]
-            return float(row.get("AdjC") or row.get("C") or 0)
+        df = prices.get(ticker)
+        if df is not None and not df.empty:
+            # AdjustmentClose列があれば使用
+            if "AdjustmentClose" in df.columns:
+                return float(df["AdjustmentClose"].iloc[-1])
+            elif "close" in df.columns:
+                return float(df["close"].iloc[-1])
     except Exception as e:
         logger.warning(f"{ticker} 価格取得エラー: {e}")
     return None
 
 
-def record_entry(signals: pd.DataFrame, today_str: str, name_map: dict):
-    """新規シグナルをdemo_trades.csvに追記"""
+def record_entry(signals: pd.DataFrame, today_str: str, name_map: dict, prices: dict = {}):
+    """新規シグナルをdemo_trades.csvに追記（重複チェック付き）"""
     if signals.empty:
         return
+
+    # 既存CSVを読み込み
+    if TRADES_PATH.exists():
+        existing = pd.read_csv(TRADES_PATH, dtype=str)
+        # 当日・同銘柄の重複チェック
+        already = set(
+            zip(existing["entry_date"].tolist(), existing["ticker"].tolist())
+        )
+    else:
+        existing = pd.DataFrame()
+        already  = set()
 
     rows = []
     for _, row in signals.iterrows():
         ticker = row["ticker"]
-        price  = get_current_price(ticker)
-        if price is None:
-            price = 0.0
 
-        exit_date = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")  # 5営業日≒7暦日
+        # 重複スキップ
+        if (today_str, ticker) in already:
+            logger.info(f"重複スキップ: {ticker} ({today_str})")
+            continue
+
+        price      = get_current_price(ticker, prices) or 0.0
+        exit_date  = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
         ma5_signal = "🔼抜け" if row.get("ma5_breakout", 0) == 1.0 else ("📈上" if row.get("above_ma5", 0) == 1.0 else "")
 
         rows.append({
@@ -456,14 +464,12 @@ def record_entry(signals: pd.DataFrame, today_str: str, name_map: dict):
             "win":          "",
         })
 
-    new_df = pd.DataFrame(rows)
+    if not rows:
+        logger.info("新規追記なし（全て重複）")
+        return
 
-    if TRADES_PATH.exists():
-        existing = pd.read_csv(TRADES_PATH, dtype=str)
-        combined = pd.concat([existing, new_df], ignore_index=True)
-    else:
-        combined = new_df
-
+    new_df   = pd.DataFrame(rows)
+    combined = pd.concat([existing, new_df], ignore_index=True) if not existing.empty else new_df
     combined.to_csv(TRADES_PATH, index=False, encoding="utf-8-sig")
     logger.info(f"デモ取引記録: {len(rows)}件追記 → {TRADES_PATH}")
 
@@ -636,7 +642,7 @@ def main():
 
     # デモ取引記録
     update_exits(today_str)          # 既存の未決済行を更新
-    record_entry(signals, today_str, name_map)  # 新規シグナルを追記
+    record_entry(signals, today_str, name_map, prices)  # 新規シグナルを追記
 
     logger.success(f"完了: {len(signals)}件のMLシグナルを通知")
 
