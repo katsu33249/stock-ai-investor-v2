@@ -349,12 +349,11 @@ def fetch_topix_data() -> dict:
 # 5. 予測実行
 # ============================================================
 def predict(features_list: list[dict], topix: dict) -> pd.DataFrame:
-    """モデルで予測確率を計算"""
+    """モデルで予測確率を計算（アンサンブル対応）"""
     with open(MODEL_PATH, "rb") as f:
         saved = pickle.load(f)
-    model     = saved["model"]
-    feat_cols = saved["feat_cols"]
 
+    feat_cols = saved["feat_cols"]
     df = pd.DataFrame(features_list)
 
     # TOPIX追加
@@ -362,7 +361,24 @@ def predict(features_list: list[dict], topix: dict) -> pd.DataFrame:
     df["topix_return_20d"] = topix.get("r20", 0.0)
 
     X = df[feat_cols].replace([np.inf, -np.inf], np.nan).fillna(0).values
-    df["pred_prob"] = model.predict(X)
+
+    # アンサンブル or 単体モデル対応
+    if "models" in saved:
+        # 新方式: アンサンブル
+        models  = saved["models"]
+        preds   = []
+        if "lgb" in models:
+            preds.append(models["lgb"].predict(X))
+        if "xgb" in models:
+            import xgboost as xgb
+            dmat = xgb.DMatrix(X, feature_names=feat_cols)
+            preds.append(models["xgb"].predict(dmat))
+        if "rf" in models:
+            preds.append(models["rf"].predict_proba(np.nan_to_num(X))[:, 1])
+        df["pred_prob"] = np.mean(preds, axis=0) if preds else np.zeros(len(X))
+    else:
+        # 旧方式: 単体モデル（後方互換）
+        df["pred_prob"] = saved["model"].predict(X)
     df = df.sort_values("pred_prob", ascending=False)
     return df
 
