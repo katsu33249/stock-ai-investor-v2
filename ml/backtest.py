@@ -128,9 +128,6 @@ def run_backtest(df: pd.DataFrame, threshold: float) -> dict:
     # 日付リスト
     dates = sorted(bt["date"].unique())
 
-    # TOPIX 2段階フィルター: -2%→ロット半分 / -5%→新規停止
-    topix_trend = bt[["date","topix_return_20d"]].drop_duplicates("date").sort_values("date")
-    topix_r20   = dict(zip(topix_trend["date"], topix_trend["topix_return_20d"].fillna(0)))
 
     capital   = float(INITIAL_CAPITAL)
     equity    = []      # (date, total_assets)
@@ -174,13 +171,6 @@ def run_backtest(df: pd.DataFrame, threshold: float) -> dict:
 
         # ② 新規エントリー（スロットが空いている場合）
         slots = MAX_POSITIONS - len(open_pos)
-
-        # 2段階TOPIXフィルター
-        r20 = topix_r20.get(today, 0.0)
-        if r20 <= -0.05:
-            slots = 0
-        elif r20 <= -0.02:
-            slots = max(0, slots // 2)
         if slots > 0:
             today_signals = bt[
                 (bt["date"] == today) &
@@ -199,13 +189,9 @@ def run_backtest(df: pd.DataFrame, threshold: float) -> dict:
                     ratio = POSITION_RATIO          # 10%
                 else:
                     ratio = POSITION_RATIO * 0.8   # 8%
-                # TOPIX -2%〜-5%: ロット0.5倍
-                if r20 <= -0.02:
-                    ratio *= 0.5
                 size = capital * ratio
                 if size <= 0:
                     continue
-                # 銘柄の行インデックスを記録（将来リターン計算用）
                 ticker_rows = bt[bt["ticker"] == sig["ticker"]].sort_values("date").reset_index(drop=True)
                 idx_matches = ticker_rows[ticker_rows["date"] == today].index.tolist()
                 if not idx_matches:
