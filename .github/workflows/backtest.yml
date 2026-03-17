@@ -60,9 +60,14 @@ jobs:
 
       - name: ファイル整理（サブフォルダから移動）
         run: |
-          find data/ml/ -name "training_data.csv" -exec mv {} data/ml/ \;
-          find data/ml/ -name "model.pkl" -exec mv {} data/ml/ \;
-          find data/ml/ -name "model_info.json" -exec mv {} data/ml/ \;
+          echo "=== ダウンロード後のファイル構造 ==="
+          find data/ml/ -type f | sort
+          # model.pkl をルートにコピー
+          PKL=$(find data/ml/ -name "model.pkl" | head -1)
+          CSV=$(find data/ml/ -name "training_data.csv" | head -1)
+          if [ -n "$PKL" ]; then cp "$PKL" data/ml/model.pkl && echo "model.pkl: $PKL → data/ml/model.pkl"; fi
+          if [ -n "$CSV" ]; then cp "$CSV" data/ml/training_data.csv && echo "training_data.csv: OK"; fi
+          echo "=== 整理後 ==="
           ls -lh data/ml/
 
       - name: 📈 バックテスト実行
