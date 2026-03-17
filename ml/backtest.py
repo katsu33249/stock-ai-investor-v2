@@ -72,24 +72,48 @@ def load_data_and_model():
     df = pd.read_csv(DATA_PATH, parse_dates=["date"])
     df = df.sort_values("date").reset_index(drop=True)
 
-    with open(MODEL_PATH, "rb") as f:
+    # model.pkl をサブフォルダから探す
+    model_path = MODEL_PATH
+    if not model_path.exists():
+        found = list(Path("data/ml").rglob("model.pkl"))
+        if found:
+            model_path = found[0]
+            logger.info(f"モデル発見: {model_path}")
+
+    with open(model_path, "rb") as f:
         saved = pickle.load(f)
-    model     = saved["model"]
+
     feat_cols = saved["feat_cols"]
     threshold = saved["threshold"]
 
     logger.info(f"データ: {len(df):,}レコード | 特徴量: {len(feat_cols)}個 | 閾値: {threshold}")
-    return df, model, feat_cols, threshold
+    return df, saved, feat_cols, threshold
 
 
 # ============================================================
 # 2. 全データに予測確率を付与
 # ============================================================
-def predict_all(df: pd.DataFrame, model, feat_cols: list) -> pd.DataFrame:
+def predict_all(df: pd.DataFrame, saved: dict, feat_cols: list) -> pd.DataFrame:
+    """アンサンブル or 単体モデル対応"""
     logger.info("予測確率を計算中...")
     X = df[feat_cols].replace([np.inf, -np.inf], np.nan).values
     df = df.copy()
-    df["pred_prob"] = model.predict(X)
+
+    if "models" in saved:
+        # アンサンブル
+        models = saved["models"]
+        preds  = []
+        if "lgb" in models:
+            preds.append(models["lgb"].predict(X))
+        if "xgb" in models:
+            import xgboost as xgb
+            dmat = xgb.DMatrix(X, feature_names=feat_cols)
+            preds.append(models["xgb"].predict(dmat))
+        if "rf" in models:
+            preds.append(models["rf"].predict_proba(np.nan_to_num(X))[:, 1])
+        df["pred_prob"] = np.mean(preds, axis=0) if preds else np.zeros(len(X))
+    else:
+        df["pred_prob"] = saved["model"].predict(X)
     return df
 
 
@@ -263,10 +287,10 @@ def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # データ・モデル読み込み
-    df, model, feat_cols, threshold = load_data_and_model()
+    df, saved, feat_cols, threshold = load_data_and_model()
 
     # 予測確率付与
-    df = predict_all(df, model, feat_cols)
+    df = predict_all(df, saved, feat_cols)
 
     # バックテスト実行
     trades, equity, final_capital = run_backtest(df, threshold)
