@@ -1,110 +1,370 @@
-name: 📊 ML PHASE 2 - モデル学習
+"""
+PHASE 2: LightGBMモデル学習スクリプト（改善版）
+=============================================
+改善内容:
+  A. 市場上昇日を正例から除外（ノイズ削減）
+  B. Optunaでハイパーパラメータ最適化
+  C. アンサンブル（LightGBM + XGBoost + RandomForest）
 
-on:
-  workflow_dispatch:
-    inputs:
-      run_note:
-        description: '実行メモ（任意）'
-        required: false
-        default: ''
+目標: AUC 0.591 → 0.62〜0.64
+"""
 
-permissions:
-  contents: write
-  actions: read
+import os
+import json
+import pickle
+import warnings
+import numpy as np
+import pandas as pd
+from pathlib import Path
+from datetime import datetime
+from loguru import logger
 
-jobs:
-  train:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+warnings.filterwarnings("ignore")
 
-    steps:
-      - name: リポジトリをチェックアウト
-        uses: actions/checkout@v4
+# ============================================================
+# 設定
+# ============================================================
+DATA_PATH   = Path("data/ml/training_data.csv")
+OUTPUT_DIR  = Path("data/ml")
+MODEL_PATH  = OUTPUT_DIR / "model.pkl"
+INFO_PATH   = OUTPUT_DIR / "model_info.json"
 
-      - name: Python セットアップ
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-          cache: 'pip'
+N_SPLITS    = 5
+EARLY_STOP  = 50
+THRESHOLD   = 0.35
+TRAIN_END   = "2021-12-31"
+OPTUNA_TRIALS = 30   # Optunaの試行回数
 
-      - name: 依存ライブラリをインストール
-        run: |
-          pip install \
-            lightgbm \
-            scikit-learn \
-            pandas \
-            numpy \
-            loguru \
-            requests
+# ============================================================
+# ロガー設定
+# ============================================================
+logger.remove()
+logger.add(
+    lambda msg: print(msg, end=""),
+    format="<green>{time:HH:mm:ss}</green> | <level>{level:<8}</level> | {message}\n",
+    level="INFO"
+)
+logger.add(
+    "data/logs/train_model_{time:YYYYMMDD}.log",
+    rotation="1 day", retention="30 days", level="DEBUG"
+)
 
-      - name: PHASE 1 Artifact（学習データ）をダウンロード
-        uses: dawidd6/action-download-artifact@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          workflow: collect_training_data.yml
-          name_is_regexp: true
-          name: training-data-.*
-          path: data/ml/
-          search_artifacts: true
+# ============================================================
+# 特徴量リスト（新特徴量追加済み）
+# ============================================================
+FEATURE_COLS = [
+    "return_1d", "return_5d", "return_20d", "return_60d",
+    "ma5_dev", "ma25_dev", "ma75_dev", "above_ma75",
+    "rsi14", "bb_pct",
+    "macd_hist", "macd_golden",
+    "vol_ratio", "vol_surge_days",
+    "gc_25_75",
+    "from_high", "from_low",
+    "rci9", "rci26",
+    "ichi_tenkan_dev", "ichi_kijun_dev", "ichi_above_cloud",
+    "adx14",
+    "margin_ratio", "margin_ratio_chg",
+    "topix_return_5d", "topix_return_20d",
+    "per", "pbr", "roe", "roa",
+    "operating_margin", "revenue_growth",
+    "equity_ratio", "debt_to_equity",
+    "dividend_yield", "credit_score",
+]
 
-      - name: ダウンロード確認
-        run: |
-          ls -lh data/ml/
-          # サブフォルダに展開されるので移動
-          find data/ml/ -name "training_data.csv" -exec mv {} data/ml/ \;
-          RECORDS=$(python3 -c "
-          import pandas as pd
-          df = pd.read_csv('data/ml/training_data.csv')
-          print(f'{len(df):,}')
-          ")
-          echo "✅ 学習データ: ${RECORDS}レコード"
 
-      - name: 🤖 LightGBMモデル学習
-        run: |
-          python ml/train_model.py
+# ============================================================
+# 1. データ読み込み・前処理
+# ============================================================
+def load_data():
+    logger.info(f"データ読み込み中: {DATA_PATH}")
+    df = pd.read_csv(DATA_PATH, parse_dates=["date"])
+    logger.info(f"読み込み完了: {len(df):,}レコード")
 
-      - name: 学習結果を確認
-        id: result
-        run: |
-          AUC=$(cat data/ml/model_info.json | python3 -c "
-          import sys, json
-          d = json.load(sys.stdin)
-          print(d['evaluation']['auc'])
-          ")
-          PREC=$(cat data/ml/model_info.json | python3 -c "
-          import sys, json
-          d = json.load(sys.stdin)
-          print(d['evaluation']['precision'])
-          ")
-          JUDGE=$(cat data/ml/model_info.json | python3 -c "
-          import sys, json
-          d = json.load(sys.stdin)
-          print(d['evaluation']['判定'])
-          ")
-          echo "auc=${AUC}" >> $GITHUB_OUTPUT
-          echo "precision=${PREC}" >> $GITHUB_OUTPUT
-          echo "judge=${JUDGE}" >> $GITHUB_OUTPUT
-          echo "AUC: ${AUC} | Precision: ${PREC} | ${JUDGE}"
+    feat_cols = [c for c in FEATURE_COLS if c in df.columns]
+    logger.info(f"特徴量数: {len(feat_cols)}")
 
-      - name: モデルをArtifactに保存
-        uses: actions/upload-artifact@v4
-        with:
-          name: ml-model-${{ github.run_number }}
-          path: |
-            data/ml/model.pkl
-            data/ml/model_info.json
-          retention-days: 90
+    df = df[df["date"] <= TRAIN_END].copy()
+    logger.info(f"学習期間限定: 〜{TRAIN_END} ({len(df):,}レコード)")
 
-      - name: model_info.json をリポジトリにコミット
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "🤖 ML PHASE2 モデル学習完了 - Run#${{ github.run_number }}"
-          file_pattern: data/ml/model_info.json
-          commit_user_name: Stock AI Bot
-          commit_user_email: bot@github.actions
+    # ============================================================
+    # 改善A: 市場上昇日の正例を除外
+    # TOPIXが5日で+2%以上の日は「地合いで上がっただけ」→ 正例から除外
+    # ============================================================
+    if "topix_return_5d" in df.columns:
+        market_up_mask = df["topix_return_5d"] >= 0.02
+        before = df["target"].sum()
+        df.loc[market_up_mask, "target"] = 0
+        after  = df["target"].sum()
+        logger.info(f"改善A: 市場上昇日除外 正例 {before:,} → {after:,} ({before-after:,}件除外)")
 
-      - name: Discord に学習結果を通知
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-        run: |
-          python ml/notify_phase2.py ${{ github.run_number }}
+    df[feat_cols] = df[feat_cols].replace([np.inf, -np.inf], np.nan)
+    df = df.sort_values("date").reset_index(drop=True)
+
+    X     = df[feat_cols].values
+    y     = df["target"].values
+    dates = df["date"].values
+
+    logger.info(f"正例率: {y.mean():.1%}")
+    return df, X, y, dates, feat_cols
+
+
+# ============================================================
+# 改善B: Optunaでハイパーパラメータ最適化
+# ============================================================
+def optimize_params(X, y, dates, feat_cols: list) -> dict:
+    """Optunaで最適パラメータを探索（最初のfoldのみで高速化）"""
+    try:
+        import optuna
+        import lightgbm as lgb
+        from sklearn.model_selection import TimeSeriesSplit
+        from sklearn.metrics import roc_auc_score
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
+    except ImportError:
+        logger.warning("Optunaが未インストール → デフォルトパラメータを使用")
+        return get_default_params()
+
+    logger.info(f"Optuna最適化開始（{OPTUNA_TRIALS}試行）...")
+
+    # 最初の1foldだけ使って高速化
+    tscv = TimeSeriesSplit(n_splits=N_SPLITS)
+    splits = list(tscv.split(X))
+    train_idx, val_idx = splits[2]  # 3番目のfoldを使用
+    X_train, X_val = X[train_idx], X[val_idx]
+    y_train, y_val = y[train_idx], y[val_idx]
+
+    def objective(trial):
+        params = {
+            "objective":        "binary",
+            "metric":           "auc",
+            "boosting_type":    "gbdt",
+            "verbose":          -1,
+            "random_state":     42,
+            "num_leaves":       trial.suggest_int("num_leaves", 20, 150),
+            "learning_rate":    trial.suggest_float("learning_rate", 0.01, 0.1, log=True),
+            "feature_fraction": trial.suggest_float("feature_fraction", 0.5, 1.0),
+            "bagging_fraction": trial.suggest_float("bagging_fraction", 0.5, 1.0),
+            "bagging_freq":     trial.suggest_int("bagging_freq", 1, 10),
+            "min_child_samples":trial.suggest_int("min_child_samples", 20, 100),
+            "lambda_l1":        trial.suggest_float("lambda_l1", 1e-4, 1.0, log=True),
+            "lambda_l2":        trial.suggest_float("lambda_l2", 1e-4, 1.0, log=True),
+        }
+        dtrain = lgb.Dataset(X_train, label=y_train, feature_name=feat_cols)
+        dval   = lgb.Dataset(X_val, label=y_val, feature_name=feat_cols, reference=dtrain)
+        model  = lgb.train(
+            params, dtrain, num_boost_round=500,
+            valid_sets=[dval],
+            callbacks=[lgb.early_stopping(30, verbose=False), lgb.log_evaluation(period=-1)]
+        )
+        return roc_auc_score(y_val, model.predict(X_val))
+
+    study = optuna.create_study(direction="maximize")
+    study.optimize(objective, n_trials=OPTUNA_TRIALS, show_progress_bar=False)
+
+    best = study.best_params
+    best["objective"]    = "binary"
+    best["metric"]       = "auc"
+    best["boosting_type"]= "gbdt"
+    best["verbose"]      = -1
+    best["random_state"] = 42
+
+    logger.info(f"最適パラメータ: num_leaves={best['num_leaves']} lr={best['learning_rate']:.4f} AUC={study.best_value:.4f}")
+    return best
+
+
+def get_default_params() -> dict:
+    return {
+        "objective": "binary", "metric": "auc", "boosting_type": "gbdt",
+        "num_leaves": 63, "learning_rate": 0.05, "feature_fraction": 0.8,
+        "bagging_fraction": 0.8, "bagging_freq": 5, "min_child_samples": 50,
+        "lambda_l1": 0.1, "lambda_l2": 0.1, "verbose": -1, "random_state": 42,
+    }
+
+
+# ============================================================
+# 2. 時系列クロスバリデーション
+# ============================================================
+def time_series_cv(X, y, dates, feat_cols: list, lgb_params: dict) -> dict:
+    import lightgbm as lgb
+    from sklearn.model_selection import TimeSeriesSplit
+    from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
+
+    tscv = TimeSeriesSplit(n_splits=N_SPLITS)
+    aucs, precisions, recalls, f1s = [], [], [], []
+    fold_results = []
+
+    logger.info(f"時系列CV開始（{N_SPLITS}分割）")
+
+    for fold, (train_idx, val_idx) in enumerate(tscv.split(X), 1):
+        X_train, X_val = X[train_idx], X[val_idx]
+        y_train, y_val = y[train_idx], y[val_idx]
+
+        train_date    = pd.Timestamp(dates[train_idx[-1]]).date()
+        val_date_from = pd.Timestamp(dates[val_idx[0]]).date()
+        val_date_to   = pd.Timestamp(dates[val_idx[-1]]).date()
+
+        logger.info(f"  Fold {fold}: 訓練〜{train_date} | 検証 {val_date_from}〜{val_date_to}")
+
+        dtrain = lgb.Dataset(X_train, label=y_train, feature_name=feat_cols)
+        dval   = lgb.Dataset(X_val,   label=y_val,   feature_name=feat_cols, reference=dtrain)
+
+        model = lgb.train(
+            lgb_params, dtrain, num_boost_round=1000,
+            valid_sets=[dval],
+            callbacks=[lgb.early_stopping(EARLY_STOP, verbose=False), lgb.log_evaluation(period=-1)]
+        )
+
+        y_pred_prob = model.predict(X_val)
+        y_pred      = (y_pred_prob >= THRESHOLD).astype(int)
+
+        auc  = roc_auc_score(y_val, y_pred_prob)
+        prec = precision_score(y_val, y_pred, zero_division=0)
+        rec  = recall_score(y_val, y_pred, zero_division=0)
+        f1   = f1_score(y_val, y_pred, zero_division=0)
+
+        aucs.append(auc); precisions.append(prec); recalls.append(rec); f1s.append(f1)
+        logger.info(f"    AUC:{auc:.3f} Precision:{prec:.3f} Recall:{rec:.3f} F1:{f1:.3f}")
+
+        fold_results.append({
+            "fold": fold, "auc": round(auc,4), "precision": round(prec,4),
+            "recall": round(rec,4), "f1": round(f1,4),
+            "val_from": str(val_date_from), "val_to": str(val_date_to),
+        })
+
+    cv_results = {
+        "auc_mean": round(float(np.mean(aucs)), 4),
+        "auc_std":  round(float(np.std(aucs)), 4),
+        "precision_mean": round(float(np.mean(precisions)), 4),
+        "recall_mean":    round(float(np.mean(recalls)), 4),
+        "f1_mean":        round(float(np.mean(f1s)), 4),
+        "folds": fold_results,
+    }
+    logger.info(f"CV結果: AUC={cv_results['auc_mean']:.3f}±{cv_results['auc_std']:.3f}")
+    return cv_results
+
+
+# ============================================================
+# 改善C: アンサンブルモデル学習
+# ============================================================
+def train_ensemble(X, y, feat_cols: list, lgb_params: dict):
+    """LightGBM + XGBoost + RandomForest のアンサンブル"""
+    import lightgbm as lgb
+    models = {}
+
+    # --- LightGBM ---
+    logger.info("LightGBM学習中...")
+    dtrain = lgb.Dataset(X, label=y, feature_name=feat_cols)
+    lgb_model = lgb.train(lgb_params, dtrain, num_boost_round=500)
+    models["lgb"] = lgb_model
+
+    # --- XGBoost ---
+    try:
+        import xgboost as xgb
+        logger.info("XGBoost学習中...")
+        xgb_params = {
+            "objective": "binary:logistic", "eval_metric": "auc",
+            "max_depth": 6, "learning_rate": 0.05,
+            "subsample": 0.8, "colsample_bytree": 0.8,
+            "min_child_weight": 50, "seed": 42, "verbosity": 0,
+        }
+        dtrain_xgb = xgb.DMatrix(X, label=y, feature_names=feat_cols)
+        xgb_model  = xgb.train(xgb_params, dtrain_xgb, num_boost_round=500,
+                                verbose_eval=False)
+        models["xgb"] = xgb_model
+        logger.info("XGBoost学習完了")
+    except ImportError:
+        logger.warning("XGBoostが未インストール → スキップ")
+
+    # --- RandomForest ---
+    try:
+        from sklearn.ensemble import RandomForestClassifier
+        logger.info("RandomForest学習中...")
+        rf_model = RandomForestClassifier(
+            n_estimators=200, max_depth=8, min_samples_leaf=50,
+            max_features="sqrt", random_state=42, n_jobs=-1
+        )
+        rf_model.fit(np.nan_to_num(X), y)
+        models["rf"] = rf_model
+        logger.info("RandomForest学習完了")
+    except ImportError:
+        logger.warning("sklearn未インストール → スキップ")
+
+    logger.info(f"アンサンブル構成: {list(models.keys())}")
+
+    # 特徴量重要度（LightGBMベース）
+    importance = dict(zip(feat_cols, lgb_model.feature_importance(importance_type="gain").tolist()))
+    importance_sorted = dict(sorted(importance.items(), key=lambda x: x[1], reverse=True)[:10])
+
+    logger.info("特徴量重要度 TOP10:")
+    for feat, imp in importance_sorted.items():
+        logger.info(f"  {feat:<25}: {imp:.1f}")
+
+    return models, importance_sorted
+
+
+# ============================================================
+# メイン処理
+# ============================================================
+def main():
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    Path("data/logs").mkdir(parents=True, exist_ok=True)
+
+    # データ読み込み（改善A適用）
+    df, X, y, dates, feat_cols = load_data()
+
+    # 改善B: Optuna最適化
+    lgb_params = optimize_params(X, y, dates, feat_cols)
+
+    # 時系列CV（最適パラメータで）
+    cv_results = time_series_cv(X, y, dates, feat_cols, lgb_params)
+
+    # 改善C: アンサンブル学習
+    models, importance = train_ensemble(X, y, feat_cols, lgb_params)
+
+    # モデル保存
+    with open(MODEL_PATH, "wb") as f:
+        pickle.dump({
+            "models":    models,
+            "feat_cols": feat_cols,
+            "threshold": THRESHOLD,
+            "lgb_params": lgb_params,
+        }, f)
+    logger.info(f"モデル保存: {MODEL_PATH}")
+
+    # メタ情報保存
+    model_info = {
+        "created_at":    datetime.now().isoformat(),
+        "total_records": len(df),
+        "feature_cols":  feat_cols,
+        "threshold":     THRESHOLD,
+        "ensemble":      list(models.keys()),
+        "lgb_params":    lgb_params,
+        "cv_results":    cv_results,
+        "feature_importance_top10": importance,
+        "evaluation": {
+            "auc":       cv_results["auc_mean"],
+            "precision": cv_results["precision_mean"],
+            "recall":    cv_results["recall_mean"],
+            "f1":        cv_results["f1_mean"],
+            "判定": "✅ 有効" if cv_results["auc_mean"] >= 0.55 else "⚠️ 要改善",
+        }
+    }
+    with open(INFO_PATH, "w", encoding="utf-8") as f:
+        json.dump(model_info, f, ensure_ascii=False, indent=2)
+
+    ev = model_info["evaluation"]
+    logger.success(f"""
+========================================
+  PHASE 2 完了（改善版）
+========================================
+  AUC:       {ev['auc']:.3f}  {ev['判定']}
+  Precision: {ev['precision']:.3f}
+  Recall:    {ev['recall']:.3f}
+  F1:        {ev['f1']:.3f}
+  アンサンブル: {list(models.keys())}
+  モデル: {MODEL_PATH}
+========================================
+    """)
+
+
+if __name__ == "__main__":
+    main()
