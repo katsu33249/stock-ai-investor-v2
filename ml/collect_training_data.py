@@ -56,7 +56,8 @@ def get_prime_tickers() -> list:
     """東証プライム全銘柄コードを取得"""
     logger.info("東証プライム銘柄リスト取得中...")
     all_data = []
-    params   = {}
+    today    = datetime.now().strftime("%Y%m%d")
+    params   = {"date": today}
 
     while True:
         res = requests.get(
@@ -76,16 +77,29 @@ def get_prime_tickers() -> list:
         pagination_key = body.get("pagination_key")
         if not pagination_key:
             break
-        params["pagination_key"] = pagination_key
+        # pagination_key使用時はdateを除去
+        params = {"pagination_key": pagination_key}
         time.sleep(SLEEP_SEC)
 
-    # 東証プライム（MarketCodeName or MarketCode）のみ絞り込み
+    # デバッグ: 最初の1件のキーと市場コードを確認
+    if all_data:
+        sample = all_data[0]
+        logger.info(f"銘柄マスタサンプルキー: {list(sample.keys())}")
+        logger.info(f"サンプル値: Code={sample.get('Code')} Market={sample.get('MarketCode')} MarketName={sample.get('MarketCodeName')} Segment={sample.get('Segment')}")
+        # 全ユニーク市場コードを確認
+        market_codes = set(str(d.get("MarketCode","")) for d in all_data[:100])
+        logger.info(f"市場コードサンプル: {market_codes}")
+
+    # 東証プライム絞り込み（複数パターン対応）
     prime = [
         d for d in all_data
         if (
             str(d.get("MarketCode", "")) == "0111" or
+            str(d.get("MarketCode", "")) == "111" or
             "プライム" in str(d.get("MarketCodeName", "")) or
-            "Prime" in str(d.get("MarketCodeName", ""))
+            "Prime" in str(d.get("MarketCodeName", "")) or
+            "プライム" in str(d.get("Segment", "")) or
+            "Prime" in str(d.get("Segment", ""))
         )
         and d.get("Code")
     ]
