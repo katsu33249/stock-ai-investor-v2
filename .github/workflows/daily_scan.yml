@@ -65,12 +65,22 @@ jobs:
         run: python ml/cleanup_trades.py
 
       - name: 🚀 スクリーニング実行
-        if: github.event.inputs.mode != 'cleanup_trades'
+        if: >
+          github.event.inputs.mode != 'cleanup_trades' &&
+          github.event.inputs.mode != 'update_fundamentals'
         env:
           JQUANTS_API_KEY: ${{ secrets.JQUANTS_API_KEY }}
           EDINET_DB_API_KEY: ${{ secrets.EDINET_DB_API_KEY }}
         run: |
           python main.py --mode ${{ github.event.inputs.mode || 'full' }} --config config/settings_runtime.yaml
+
+      - name: 🏦 EDINET財務データ更新（新方式）
+        if: github.event.inputs.mode == 'update_fundamentals'
+        env:
+          EDINET_DB_API_KEY: ${{ secrets.EDINET_DB_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          python update_fundamentals.py
 
       - name: 🤖 MLモデルをダウンロード
         uses: dawidd6/action-download-artifact@v3
