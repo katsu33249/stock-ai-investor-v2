@@ -81,28 +81,30 @@ def get_prime_tickers() -> list:
         params = {"pagination_key": pagination_key}
         time.sleep(SLEEP_SEC)
 
-    # デバッグ: 最初の1件のキーと市場コードを確認
+    # デバッグ: 実際のフィールド値を確認
     if all_data:
         sample = all_data[0]
-        logger.info(f"銘柄マスタサンプルキー: {list(sample.keys())}")
-        logger.info(f"サンプル値: Code={sample.get('Code')} Market={sample.get('MarketCode')} MarketName={sample.get('MarketCodeName')} Segment={sample.get('Segment')}")
-        # 全ユニーク市場コードを確認
-        market_codes = set(str(d.get("MarketCode","")) for d in all_data[:100])
-        logger.info(f"市場コードサンプル: {market_codes}")
+        logger.info(f"サンプル: Mkt={sample.get('Mkt')} MktNm={sample.get('MktNm')}")
+        mkt_vals  = set(str(d.get("Mkt",""))   for d in all_data[:200])
+        mktnm_vals = set(str(d.get("MktNm","")) for d in all_data[:200])
+        logger.info(f"Mktユニーク値: {mkt_vals}")
+        logger.info(f"MktNmユニーク値: {mktnm_vals}")
 
-    # 東証プライム絞り込み（複数パターン対応）
+    # 東証プライム絞り込み（V2フィールド名: Mkt/MktNm）
     prime = [
         d for d in all_data
         if (
+            str(d.get("Mkt", "")) == "0111" or
+            str(d.get("Mkt", "")) == "111" or
+            "プライム" in str(d.get("MktNm", "")) or
+            "Prime" in str(d.get("MktNm", "")) or
+            # 旧フィールド名も念のため対応
             str(d.get("MarketCode", "")) == "0111" or
-            str(d.get("MarketCode", "")) == "111" or
-            "プライム" in str(d.get("MarketCodeName", "")) or
-            "Prime" in str(d.get("MarketCodeName", "")) or
-            "プライム" in str(d.get("Segment", "")) or
-            "Prime" in str(d.get("Segment", ""))
+            "プライム" in str(d.get("MarketCodeName", ""))
         )
         and d.get("Code")
     ]
+    logger.info(f"プライム候補: {len(prime)}社 / 全{len(all_data)}社")
     # 5桁コードを4桁+.T形式に変換
     tickers = []
     for d in prime:
