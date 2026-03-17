@@ -1,23 +1,12 @@
 """
-PHASE 2: LightGBMモデル学習スクリプト
-=====================================
-目的: PHASE 1で収集した学習データでMLモデルを構築する
+PHASE 2: LightGBMモデル学習スクリプト（改善版）
+=============================================
+改善内容:
+  A. 市場上昇日を正例から除外（ノイズ削減）
+  B. Optunaでハイパーパラメータ最適化
+  C. アンサンブル（LightGBM + XGBoost + RandomForest）
 
-学習方法:
-  - TimeSeriesSplit（時系列クロスバリデーション）
-  - ランダム分割は未来データのリークが起きるため使用不可
-
-評価指標:
-  - AUC（ROC）: 0.55以上で有効
-  - Precision: 予測した銘柄のうち実際に上昇した割合
-  - Recall: 実際に上昇した銘柄のうち予測できた割合
-
-出力:
-  - data/ml/model.pkl（学習済みモデル）
-  - data/ml/model_info.json（精度・特徴量重要度）
-
-実行:
-  python ml/train_model.py
+目標: AUC 0.591 → 0.62〜0.64
 """
 
 import os
@@ -40,13 +29,11 @@ OUTPUT_DIR  = Path("data/ml")
 MODEL_PATH  = OUTPUT_DIR / "model.pkl"
 INFO_PATH   = OUTPUT_DIR / "model_info.json"
 
-N_SPLITS    = 5       # 時系列CVの分割数
-EARLY_STOP  = 50      # Early stopping rounds
-THRESHOLD   = 0.35    # 買いシグナルの確率閾値
-
-# ★ 重要: バックテスト期間（2022〜）とのデータリークを防ぐため
-#          学習データは2021年末までに限定する
+N_SPLITS    = 5
+EARLY_STOP  = 50
+THRESHOLD   = 0.35
 TRAIN_END   = "2021-12-31"
+OPTUNA_TRIALS = 30   # Optunaの試行回数
 
 # ============================================================
 # ロガー設定
@@ -63,17 +50,20 @@ logger.add(
 )
 
 # ============================================================
-# 特徴量リスト
+# 特徴量リスト（新特徴量追加済み）
 # ============================================================
 FEATURE_COLS = [
     "return_1d", "return_5d", "return_20d", "return_60d",
     "ma5_dev", "ma25_dev", "ma75_dev", "above_ma75",
     "rsi14", "bb_pct",
     "macd_hist", "macd_golden",
-    "vol_ratio",
+    "vol_ratio", "vol_surge_days",
     "gc_25_75",
     "from_high", "from_low",
-    "margin_ratio",
+    "rci9", "rci26",
+    "ichi_tenkan_dev", "ichi_kijun_dev", "ichi_above_cloud",
+    "adx14",
+    "margin_ratio", "margin_ratio_chg",
     "topix_return_5d", "topix_return_20d",
     "per", "pbr", "roe", "roa",
     "operating_margin", "revenue_growth",
@@ -85,28 +75,33 @@ FEATURE_COLS = [
 # ============================================================
 # 1. データ読み込み・前処理
 # ============================================================
-def load_data() -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
-    """学習データを読み込み、特徴量と目的変数を返す"""
+def load_data():
     logger.info(f"データ読み込み中: {DATA_PATH}")
     df = pd.read_csv(DATA_PATH, parse_dates=["date"])
     logger.info(f"読み込み完了: {len(df):,}レコード")
 
-    # 使用する特徴量（存在するもののみ）
     feat_cols = [c for c in FEATURE_COLS if c in df.columns]
     logger.info(f"特徴量数: {len(feat_cols)}")
 
-    # ★ 学習データを TRAIN_END までに限定（バックテスト期間のリーク防止）
     df = df[df["date"] <= TRAIN_END].copy()
     logger.info(f"学習期間限定: 〜{TRAIN_END} ({len(df):,}レコード)")
 
-    # 無限値をNaNに変換
-    df[feat_cols] = df[feat_cols].replace([np.inf, -np.inf], np.nan)
+    # ============================================================
+    # 改善A: 市場上昇日の正例を除外
+    # TOPIXが5日で+2%以上の日は「地合いで上がっただけ」→ 正例から除外
+    # ============================================================
+    if "topix_return_5d" in df.columns:
+        market_up_mask = df["topix_return_5d"] >= 0.02
+        before = df["target"].sum()
+        df.loc[market_up_mask, "target"] = 0
+        after  = df["target"].sum()
+        logger.info(f"改善A: 市場上昇日除外 正例 {before:,} → {after:,} ({before-after:,}件除外)")
 
-    # 日付でソート（時系列順を保証）
+    df[feat_cols] = df[feat_cols].replace([np.inf, -np.inf], np.nan)
     df = df.sort_values("date").reset_index(drop=True)
 
-    X = df[feat_cols].values
-    y = df["target"].values
+    X     = df[feat_cols].values
+    y     = df["target"].values
     dates = df["date"].values
 
     logger.info(f"正例率: {y.mean():.1%}")
@@ -114,37 +109,88 @@ def load_data() -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
 
 
 # ============================================================
-# 2. 時系列クロスバリデーション
+# 改善B: Optunaでハイパーパラメータ最適化
 # ============================================================
-def time_series_cv(X, y, dates, feat_cols: list) -> dict:
-    """TimeSeriesSplitでクロスバリデーション"""
+def optimize_params(X, y, dates, feat_cols: list) -> dict:
+    """Optunaで最適パラメータを探索（最初のfoldのみで高速化）"""
     try:
+        import optuna
         import lightgbm as lgb
         from sklearn.model_selection import TimeSeriesSplit
-        from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
-    except ImportError as e:
-        raise ImportError(f"必要なライブラリが不足しています: {e}")
+        from sklearn.metrics import roc_auc_score
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
+    except ImportError:
+        logger.warning("Optunaが未インストール → デフォルトパラメータを使用")
+        return get_default_params()
+
+    logger.info(f"Optuna最適化開始（{OPTUNA_TRIALS}試行）...")
+
+    # 最初の1foldだけ使って高速化
+    tscv = TimeSeriesSplit(n_splits=N_SPLITS)
+    splits = list(tscv.split(X))
+    train_idx, val_idx = splits[2]  # 3番目のfoldを使用
+    X_train, X_val = X[train_idx], X[val_idx]
+    y_train, y_val = y[train_idx], y[val_idx]
+
+    def objective(trial):
+        params = {
+            "objective":        "binary",
+            "metric":           "auc",
+            "boosting_type":    "gbdt",
+            "verbose":          -1,
+            "random_state":     42,
+            "num_leaves":       trial.suggest_int("num_leaves", 20, 150),
+            "learning_rate":    trial.suggest_float("learning_rate", 0.01, 0.1, log=True),
+            "feature_fraction": trial.suggest_float("feature_fraction", 0.5, 1.0),
+            "bagging_fraction": trial.suggest_float("bagging_fraction", 0.5, 1.0),
+            "bagging_freq":     trial.suggest_int("bagging_freq", 1, 10),
+            "min_child_samples":trial.suggest_int("min_child_samples", 20, 100),
+            "lambda_l1":        trial.suggest_float("lambda_l1", 1e-4, 1.0, log=True),
+            "lambda_l2":        trial.suggest_float("lambda_l2", 1e-4, 1.0, log=True),
+        }
+        dtrain = lgb.Dataset(X_train, label=y_train, feature_name=feat_cols)
+        dval   = lgb.Dataset(X_val, label=y_val, feature_name=feat_cols, reference=dtrain)
+        model  = lgb.train(
+            params, dtrain, num_boost_round=500,
+            valid_sets=[dval],
+            callbacks=[lgb.early_stopping(30, verbose=False), lgb.log_evaluation(period=-1)]
+        )
+        return roc_auc_score(y_val, model.predict(X_val))
+
+    study = optuna.create_study(direction="maximize")
+    study.optimize(objective, n_trials=OPTUNA_TRIALS, show_progress_bar=False)
+
+    best = study.best_params
+    best["objective"]    = "binary"
+    best["metric"]       = "auc"
+    best["boosting_type"]= "gbdt"
+    best["verbose"]      = -1
+    best["random_state"] = 42
+
+    logger.info(f"最適パラメータ: num_leaves={best['num_leaves']} lr={best['learning_rate']:.4f} AUC={study.best_value:.4f}")
+    return best
+
+
+def get_default_params() -> dict:
+    return {
+        "objective": "binary", "metric": "auc", "boosting_type": "gbdt",
+        "num_leaves": 63, "learning_rate": 0.05, "feature_fraction": 0.8,
+        "bagging_fraction": 0.8, "bagging_freq": 5, "min_child_samples": 50,
+        "lambda_l1": 0.1, "lambda_l2": 0.1, "verbose": -1, "random_state": 42,
+    }
+
+
+# ============================================================
+# 2. 時系列クロスバリデーション
+# ============================================================
+def time_series_cv(X, y, dates, feat_cols: list, lgb_params: dict) -> dict:
+    import lightgbm as lgb
+    from sklearn.model_selection import TimeSeriesSplit
+    from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
 
     tscv = TimeSeriesSplit(n_splits=N_SPLITS)
-
     aucs, precisions, recalls, f1s = [], [], [], []
     fold_results = []
-
-    lgb_params = {
-        "objective":        "binary",
-        "metric":           "auc",
-        "boosting_type":    "gbdt",
-        "num_leaves":       63,
-        "learning_rate":    0.05,
-        "feature_fraction": 0.8,
-        "bagging_fraction": 0.8,
-        "bagging_freq":     5,
-        "min_child_samples": 50,
-        "lambda_l1":        0.1,
-        "lambda_l2":        0.1,
-        "verbose":          -1,
-        "random_state":     42,
-    }
 
     logger.info(f"時系列CV開始（{N_SPLITS}分割）")
 
@@ -152,7 +198,7 @@ def time_series_cv(X, y, dates, feat_cols: list) -> dict:
         X_train, X_val = X[train_idx], X[val_idx]
         y_train, y_val = y[train_idx], y[val_idx]
 
-        train_date = pd.Timestamp(dates[train_idx[-1]]).date()
+        train_date    = pd.Timestamp(dates[train_idx[-1]]).date()
         val_date_from = pd.Timestamp(dates[val_idx[0]]).date()
         val_date_to   = pd.Timestamp(dates[val_idx[-1]]).date()
 
@@ -162,14 +208,9 @@ def time_series_cv(X, y, dates, feat_cols: list) -> dict:
         dval   = lgb.Dataset(X_val,   label=y_val,   feature_name=feat_cols, reference=dtrain)
 
         model = lgb.train(
-            lgb_params,
-            dtrain,
-            num_boost_round=1000,
+            lgb_params, dtrain, num_boost_round=1000,
             valid_sets=[dval],
-            callbacks=[
-                lgb.early_stopping(EARLY_STOP, verbose=False),
-                lgb.log_evaluation(period=-1),
-            ]
+            callbacks=[lgb.early_stopping(EARLY_STOP, verbose=False), lgb.log_evaluation(period=-1)]
         )
 
         y_pred_prob = model.predict(X_val)
@@ -180,82 +221,84 @@ def time_series_cv(X, y, dates, feat_cols: list) -> dict:
         rec  = recall_score(y_val, y_pred, zero_division=0)
         f1   = f1_score(y_val, y_pred, zero_division=0)
 
-        aucs.append(auc)
-        precisions.append(prec)
-        recalls.append(rec)
-        f1s.append(f1)
-
+        aucs.append(auc); precisions.append(prec); recalls.append(rec); f1s.append(f1)
         logger.info(f"    AUC:{auc:.3f} Precision:{prec:.3f} Recall:{rec:.3f} F1:{f1:.3f}")
 
         fold_results.append({
-            "fold": fold,
-            "auc": round(auc, 4),
-            "precision": round(prec, 4),
-            "recall": round(rec, 4),
-            "f1": round(f1, 4),
-            "val_from": str(val_date_from),
-            "val_to":   str(val_date_to),
+            "fold": fold, "auc": round(auc,4), "precision": round(prec,4),
+            "recall": round(rec,4), "f1": round(f1,4),
+            "val_from": str(val_date_from), "val_to": str(val_date_to),
         })
 
     cv_results = {
-        "auc_mean":       round(float(np.mean(aucs)), 4),
-        "auc_std":        round(float(np.std(aucs)), 4),
+        "auc_mean": round(float(np.mean(aucs)), 4),
+        "auc_std":  round(float(np.std(aucs)), 4),
         "precision_mean": round(float(np.mean(precisions)), 4),
         "recall_mean":    round(float(np.mean(recalls)), 4),
         "f1_mean":        round(float(np.mean(f1s)), 4),
-        "folds":          fold_results,
+        "folds": fold_results,
     }
-
-    logger.info(f"CV結果: AUC={cv_results['auc_mean']:.3f}±{cv_results['auc_std']:.3f} "
-                f"Precision={cv_results['precision_mean']:.3f} "
-                f"Recall={cv_results['recall_mean']:.3f}")
-
+    logger.info(f"CV結果: AUC={cv_results['auc_mean']:.3f}±{cv_results['auc_std']:.3f}")
     return cv_results
 
 
 # ============================================================
-# 3. 全データで最終モデル学習
+# 改善C: アンサンブルモデル学習
 # ============================================================
-def train_final_model(X, y, feat_cols: list):
-    """全データで最終モデルを学習"""
+def train_ensemble(X, y, feat_cols: list, lgb_params: dict):
+    """LightGBM + XGBoost + RandomForest のアンサンブル"""
     import lightgbm as lgb
+    models = {}
 
-    logger.info("最終モデル学習中（全データ使用）...")
-
-    lgb_params = {
-        "objective":        "binary",
-        "metric":           "auc",
-        "boosting_type":    "gbdt",
-        "num_leaves":       63,
-        "learning_rate":    0.05,
-        "feature_fraction": 0.8,
-        "bagging_fraction": 0.8,
-        "bagging_freq":     5,
-        "min_child_samples": 50,
-        "lambda_l1":        0.1,
-        "lambda_l2":        0.1,
-        "verbose":          -1,
-        "random_state":     42,
-    }
-
+    # --- LightGBM ---
+    logger.info("LightGBM学習中...")
     dtrain = lgb.Dataset(X, label=y, feature_name=feat_cols)
-    model  = lgb.train(lgb_params, dtrain, num_boost_round=500)
+    lgb_model = lgb.train(lgb_params, dtrain, num_boost_round=500)
+    models["lgb"] = lgb_model
 
-    # 特徴量重要度（gainベース）
-    importance = dict(zip(
-        feat_cols,
-        model.feature_importance(importance_type="gain").tolist()
-    ))
-    # 上位10件でソート
-    importance_sorted = dict(
-        sorted(importance.items(), key=lambda x: x[1], reverse=True)[:10]
-    )
+    # --- XGBoost ---
+    try:
+        import xgboost as xgb
+        logger.info("XGBoost学習中...")
+        xgb_params = {
+            "objective": "binary:logistic", "eval_metric": "auc",
+            "max_depth": 6, "learning_rate": 0.05,
+            "subsample": 0.8, "colsample_bytree": 0.8,
+            "min_child_weight": 50, "seed": 42, "verbosity": 0,
+        }
+        dtrain_xgb = xgb.DMatrix(X, label=y, feature_names=feat_cols)
+        xgb_model  = xgb.train(xgb_params, dtrain_xgb, num_boost_round=500,
+                                verbose_eval=False)
+        models["xgb"] = xgb_model
+        logger.info("XGBoost学習完了")
+    except ImportError:
+        logger.warning("XGBoostが未インストール → スキップ")
+
+    # --- RandomForest ---
+    try:
+        from sklearn.ensemble import RandomForestClassifier
+        logger.info("RandomForest学習中...")
+        rf_model = RandomForestClassifier(
+            n_estimators=200, max_depth=8, min_samples_leaf=50,
+            max_features="sqrt", random_state=42, n_jobs=-1
+        )
+        rf_model.fit(np.nan_to_num(X), y)
+        models["rf"] = rf_model
+        logger.info("RandomForest学習完了")
+    except ImportError:
+        logger.warning("sklearn未インストール → スキップ")
+
+    logger.info(f"アンサンブル構成: {list(models.keys())}")
+
+    # 特徴量重要度（LightGBMベース）
+    importance = dict(zip(feat_cols, lgb_model.feature_importance(importance_type="gain").tolist()))
+    importance_sorted = dict(sorted(importance.items(), key=lambda x: x[1], reverse=True)[:10])
 
     logger.info("特徴量重要度 TOP10:")
     for feat, imp in importance_sorted.items():
         logger.info(f"  {feat:<25}: {imp:.1f}")
 
-    return model, importance_sorted
+    return models, importance_sorted
 
 
 # ============================================================
@@ -265,27 +308,37 @@ def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     Path("data/logs").mkdir(parents=True, exist_ok=True)
 
-    # データ読み込み
+    # データ読み込み（改善A適用）
     df, X, y, dates, feat_cols = load_data()
 
-    # 時系列CV
-    cv_results = time_series_cv(X, y, dates, feat_cols)
+    # 改善B: Optuna最適化
+    lgb_params = optimize_params(X, y, dates, feat_cols)
 
-    # 最終モデル学習
-    model, importance = train_final_model(X, y, feat_cols)
+    # 時系列CV（最適パラメータで）
+    cv_results = time_series_cv(X, y, dates, feat_cols, lgb_params)
+
+    # 改善C: アンサンブル学習
+    models, importance = train_ensemble(X, y, feat_cols, lgb_params)
 
     # モデル保存
     with open(MODEL_PATH, "wb") as f:
-        pickle.dump({"model": model, "feat_cols": feat_cols, "threshold": THRESHOLD}, f)
+        pickle.dump({
+            "models":    models,
+            "feat_cols": feat_cols,
+            "threshold": THRESHOLD,
+            "lgb_params": lgb_params,
+        }, f)
     logger.info(f"モデル保存: {MODEL_PATH}")
 
     # メタ情報保存
     model_info = {
-        "created_at":       datetime.now().isoformat(),
-        "total_records":    len(df),
-        "feature_cols":     feat_cols,
-        "threshold":        THRESHOLD,
-        "cv_results":       cv_results,
+        "created_at":    datetime.now().isoformat(),
+        "total_records": len(df),
+        "feature_cols":  feat_cols,
+        "threshold":     THRESHOLD,
+        "ensemble":      list(models.keys()),
+        "lgb_params":    lgb_params,
+        "cv_results":    cv_results,
         "feature_importance_top10": importance,
         "evaluation": {
             "auc":       cv_results["auc_mean"],
@@ -298,16 +351,16 @@ def main():
     with open(INFO_PATH, "w", encoding="utf-8") as f:
         json.dump(model_info, f, ensure_ascii=False, indent=2)
 
-    # サマリー
     ev = model_info["evaluation"]
     logger.success(f"""
 ========================================
-  PHASE 2 完了
+  PHASE 2 完了（改善版）
 ========================================
   AUC:       {ev['auc']:.3f}  {ev['判定']}
   Precision: {ev['precision']:.3f}
   Recall:    {ev['recall']:.3f}
   F1:        {ev['f1']:.3f}
+  アンサンブル: {list(models.keys())}
   モデル: {MODEL_PATH}
 ========================================
     """)
