@@ -54,65 +54,37 @@ def _headers() -> dict:
 # ============================================================
 def get_prime_tickers() -> list:
     """
-    東証上場銘柄コードを取得
-    方式: 直近営業日の株価データから全銘柄を取得
-         （equities/masterのハング問題を回避）
+    対象銘柄リストを取得
+    1. config/stock_names.json（全登録銘柄）
+    2. config/policy_keywords.yaml（フォールバック）
+    ※ J-Quants APIでの全銘柄取得はハング問題があるため使用しない
     """
-    logger.info("東証上場銘柄リスト取得（株価データから）...")
+    import yaml
 
-    # 直近の平日を取得
-    for delta in range(7):
-        d = datetime.now() - timedelta(days=delta+1)
-        if d.weekday() < 5:
-            date_str = d.strftime("%Y%m%d")
-            break
+    # stock_names.json から取得（最優先）
+    stock_names_path = Path("config/stock_names.json")
+    if stock_names_path.exists():
+        with open(stock_names_path, encoding="utf-8") as f:
+            names = json.load(f)
+        tickers = sorted([f"{k}.T" for k in names.keys()])
+        logger.success(f"stock_names.json から {len(tickers)}銘柄取得")
+        return tickers
 
-    logger.info(f"基準日: {date_str}")
-    all_data = []
-    params   = {"date": date_str}
+    # フォールバック: policy_keywords.yaml
+    yaml_path = Path("config/policy_keywords.yaml")
+    if yaml_path.exists():
+        with open(yaml_path, encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+        tickers = set()
+        for sector in config.get("policy_sectors", {}).values():
+            for t in sector.get("ticker_list", []):
+                tickers.add(t)
+        tickers = sorted(list(tickers))
+        logger.success(f"policy_keywords.yaml から {len(tickers)}銘柄取得")
+        return tickers
 
-    while True:
-        res = requests.get(
-            f"{JQUANTS_BASE_URL}/equities/bars/daily",
-            headers=_headers(),
-            params=params,
-            timeout=60
-        )
-        if res.status_code == 429:
-            logger.warning("レート制限 → 30秒待機")
-            time.sleep(30)
-            continue
-        if res.status_code != 200:
-            logger.error(f"取得失敗: {res.status_code}")
-            break
-
-        body = res.json()
-        data = body.get("data", [])
-        all_data.extend(data)
-
-        pagination_key = body.get("pagination_key")
-        if not pagination_key:
-            break
-        params = {"pagination_key": pagination_key}
-        time.sleep(0.1)
-
-    logger.info(f"全上場銘柄数: {len(all_data)}")
-
-    # 5桁コード末尾0 = 普通株式、出来高>0 = 流動性あり
-    tickers = []
-    for d in all_data:
-        code = str(d.get("Code", ""))
-        if len(code) == 5 and code.endswith("0"):
-            vol = d.get("Vo") or d.get("AdjVo") or 0
-            try:
-                if float(vol) > 0:
-                    tickers.append(code[:4] + ".T")
-            except:
-                pass
-
-    tickers = sorted(list(set(tickers)))
-    logger.success(f"取得銘柄数: {len(tickers)}社")
-    return tickers
+    logger.error("銘柄リストが取得できませんでした")
+    return []
 
 
 # ============================================================
@@ -347,75 +319,63 @@ def add_fundamental_features(df: pd.DataFrame, ticker: str, fund_cache: dict) ->
 
 
 # ============================================================
+# 7. 銘柄ごとの株価履歴取得
+# ============================================================
+def fetch_price_history(ticker: str, start_str: str, end_str: str) -> pd.DataFrame:
+    code = ticker.replace(".T", "") + "0"
+    all_data = []
+    params = {"code": code, "from": start_str, "to": end_str}
+    while True:
+        res = requests.get(
+            f"{JQUANTS_BASE_URL}/equities/bars/daily",
+            headers=_headers(), params=params, timeout=30
+        )
+        if res.status_code == 429:
+            time.sleep(60); continue
+        if res.status_code != 200:
+            return pd.DataFrame()
+        body = res.json()
+        all_data.extend(body.get("data", []))
+        pkey = body.get("pagination_key")
+        if not pkey:
+            break
+        params["pagination_key"] = pkey
+        time.sleep(0.1)
+    if not all_data:
+        return pd.DataFrame()
+    df = pd.DataFrame(all_data)
+    rmap = {}
+    for o, n in [("Date","date"),("O","open"),("H","high"),("L","low"),
+                 ("C","close"),("Vo","volume"),("AdjC","close"),("AdjVo","volume")]:
+        if o in df.columns: rmap[o] = n
+    df = df.rename(columns=rmap)
+    df["date"] = pd.to_datetime(df["date"])
+    df["ticker"] = ticker
+    return df.sort_values("date").reset_index(drop=True)
+
+
+# ============================================================
 # メイン処理
 # ============================================================
 def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     Path("data/logs").mkdir(parents=True, exist_ok=True)
 
-    # 東証プライム銘柄リスト取得
     tickers = get_prime_tickers()
     if not tickers:
         logger.error("銘柄リストが取得できませんでした")
         return
 
-    prime_codes = set()
-    for t in tickers:
-        code = t.replace(".T", "") + "0"
-        prime_codes.add(code)
-
     fund_cache = load_fundamental_cache()
     logger.info(f"財務キャッシュ: {len(fund_cache)}銘柄")
 
-    # 日付範囲
     end_date   = datetime.now()
     start_date = end_date - timedelta(days=365 * HISTORY_YEARS)
     start_str  = start_date.strftime("%Y%m%d")
     end_str    = end_date.strftime("%Y%m%d")
 
-    # TOPIX取得
     topix_df = fetch_topix(start_str, end_str)
     logger.info(f"TOPIX: {len(topix_df)}日分")
-
-    # 営業日リスト（TOPIXの日付を使用）
-    trade_dates = sorted(topix_df["date"].dt.strftime("%Y%m%d").tolist())
-    logger.info(f"取得対象営業日: {len(trade_dates)}日")
-
-    # 銘柄ごとの価格データ蓄積用
-    ticker_data = {t: [] for t in tickers}
-    ticker_map  = {t.replace(".T","")+"0": t for t in tickers}
-
-    # 日付ループで一括取得
-    total = len(trade_dates)
-    for i, date_str in enumerate(trade_dates):
-        if i % 100 == 0:
-            logger.info(f"日付取得中: {i}/{total} ({date_str})")
-
-        day_df = fetch_all_tickers_by_date(date_str)
-        if day_df.empty:
-            time.sleep(SLEEP_SEC)
-            continue
-
-        # 列名正規化
-        rename_map = {}
-        for old, new in [("Date","date"),("O","open"),("H","high"),("L","low"),
-                         ("C","close"),("Vo","volume"),("AdjC","close"),("AdjVo","volume")]:
-            if old in day_df.columns:
-                rename_map[old] = new
-        day_df = day_df.rename(columns=rename_map)
-        day_df["date"] = pd.to_datetime(day_df["date"])
-
-        # プライム銘柄のみ抽出
-        if "Code" in day_df.columns:
-            day_df = day_df[day_df["Code"].astype(str).isin(prime_codes)]
-
-        for _, row in day_df.iterrows():
-            code   = str(row.get("Code",""))
-            ticker = ticker_map.get(code)
-            if ticker and ticker in ticker_data:
-                ticker_data[ticker].append(row.to_dict())
-
-        time.sleep(SLEEP_SEC)
 
     logger.info("特徴量計算・データ結合中...")
 
@@ -437,48 +397,42 @@ def main():
     all_frames = []
     success = 0
 
-    for ticker, rows in ticker_data.items():
-        if len(rows) < 100:
-            continue
-        try:
-            price_df = pd.DataFrame(rows)
-            price_df["date"] = pd.to_datetime(price_df["date"])
-            price_df = price_df.sort_values("date").reset_index(drop=True)
+    all_frames = []
+    success = 0
+    total   = len(tickers)
 
-            # 必須列確認
+    for i, ticker in enumerate(tickers, 1):
+        if i % 20 == 0 or i == 1:
+            logger.info(f"株価取得中: {i}/{total} ({ticker})")
+        try:
+            price_df = fetch_price_history(ticker, start_str, end_str)
+            if price_df.empty or len(price_df) < 100:
+                continue
+
             for col in ["open","high","low","close","volume"]:
                 if col not in price_df.columns:
                     price_df[col] = np.nan
-
             price_df[["open","high","low","close","volume"]] = \
                 price_df[["open","high","low","close","volume"]].apply(pd.to_numeric, errors="coerce")
 
-            # テクニカル特徴量
             price_df = calc_features(price_df)
-
-            # 信用倍率変化率（デフォルトNone）
             price_df["margin_ratio"]     = None
             price_df["margin_ratio_chg"] = None
 
-            # TOPIX結合
             price_df = pd.merge_asof(
                 price_df.sort_values("date"),
                 topix_df.sort_values("date"),
                 on="date", direction="backward"
             )
-
-            # 目的変数（TOPIX比アルファ）
             price_df = calc_target_alpha(price_df, topix_df)
-
-            # ファンダメンタル
             price_df = add_fundamental_features(price_df, ticker, fund_cache)
-
             price_df["ticker"] = ticker
             all_frames.append(price_df)
             success += 1
 
         except Exception as e:
             logger.warning(f"{ticker}: {e}")
+        time.sleep(SLEEP_SEC)
 
     if not all_frames:
         logger.error("データが取得できませんでした")
@@ -509,7 +463,7 @@ def main():
     feat_cols_actual = [c for c in feature_cols if c in output_df.columns]
     feature_info = {
         "created_at":    datetime.now().isoformat(),
-        "tickers":       list(ticker_data.keys()),
+        "tickers":       tickers,
         "total_records": len(output_df),
         "positive_rate": float(output_df["target"].mean()),
         "feature_cols":  feat_cols_actual,
