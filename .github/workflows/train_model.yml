@@ -53,10 +53,17 @@ jobs:
         run: |
           ls -lh data/ml/
           # サブフォルダに展開されるので移動
-          find data/ml/ -name "training_data.csv" -exec mv {} data/ml/ \;
+          CSV=$(find data/ml/ -name "training_data.csv" | head -1)
+          PQT=$(find data/ml/ -name "training_data.parquet" | head -1)
+          if [ -n "$CSV" ]; then cp "$CSV" data/ml/training_data.csv && echo "CSV: OK"; fi
+          if [ -n "$PQT" ]; then cp "$PQT" data/ml/training_data.parquet && echo "Parquet: OK"; fi
           RECORDS=$(python3 -c "
           import pandas as pd
-          df = pd.read_csv('data/ml/training_data.csv')
+          from pathlib import Path
+          if Path('data/ml/training_data.parquet').exists():
+              df = pd.read_parquet('data/ml/training_data.parquet')
+          else:
+              df = pd.read_csv('data/ml/training_data.csv')
           print(f'{len(df):,}')
           ")
           echo "✅ 学習データ: ${RECORDS}レコード"
