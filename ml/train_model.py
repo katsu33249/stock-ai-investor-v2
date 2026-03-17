@@ -231,62 +231,24 @@ def time_series_cv(X, y, dates, feat_cols: list, lgb_params: dict) -> dict:
 
 
 # ============================================================
-# 改善C: アンサンブルモデル学習
+# 3. 最終モデル学習（LightGBM単体）
 # ============================================================
-def train_ensemble(X, y, feat_cols: list, lgb_params: dict):
-    """LightGBM + XGBoost + RandomForest のアンサンブル"""
+def train_final_model(X, y, feat_cols: list, lgb_params: dict):
+    """LightGBM単体で最終モデルを学習"""
     import lightgbm as lgb
-    models = {}
 
-    # --- LightGBM ---
-    logger.info("LightGBM学習中...")
+    logger.info("LightGBM最終モデル学習中...")
     dtrain = lgb.Dataset(X, label=y, feature_name=feat_cols)
-    lgb_model = lgb.train(lgb_params, dtrain, num_boost_round=500)
-    models["lgb"] = lgb_model
+    model  = lgb.train(lgb_params, dtrain, num_boost_round=500)
 
-    # --- XGBoost ---
-    try:
-        import xgboost as xgb
-        logger.info("XGBoost学習中...")
-        xgb_params = {
-            "objective": "binary:logistic", "eval_metric": "auc",
-            "max_depth": 6, "learning_rate": 0.05,
-            "subsample": 0.8, "colsample_bytree": 0.8,
-            "min_child_weight": 50, "seed": 42, "verbosity": 0,
-        }
-        dtrain_xgb = xgb.DMatrix(X, label=y, feature_names=feat_cols)
-        xgb_model  = xgb.train(xgb_params, dtrain_xgb, num_boost_round=500,
-                                verbose_eval=False)
-        models["xgb"] = xgb_model
-        logger.info("XGBoost学習完了")
-    except ImportError:
-        logger.warning("XGBoostが未インストール → スキップ")
-
-    # --- RandomForest ---
-    try:
-        from sklearn.ensemble import RandomForestClassifier
-        logger.info("RandomForest学習中...")
-        rf_model = RandomForestClassifier(
-            n_estimators=200, max_depth=8, min_samples_leaf=50,
-            max_features="sqrt", random_state=42, n_jobs=-1
-        )
-        rf_model.fit(np.nan_to_num(X), y)
-        models["rf"] = rf_model
-        logger.info("RandomForest学習完了")
-    except ImportError:
-        logger.warning("sklearn未インストール → スキップ")
-
-    logger.info(f"アンサンブル構成: {list(models.keys())}")
-
-    # 特徴量重要度（LightGBMベース）
-    importance = dict(zip(feat_cols, lgb_model.feature_importance(importance_type="gain").tolist()))
+    importance = dict(zip(feat_cols, model.feature_importance(importance_type="gain").tolist()))
     importance_sorted = dict(sorted(importance.items(), key=lambda x: x[1], reverse=True)[:10])
 
     logger.info("特徴量重要度 TOP10:")
     for feat, imp in importance_sorted.items():
         logger.info(f"  {feat:<25}: {imp:.1f}")
 
-    return models, importance_sorted
+    return model, importance_sorted
 
 
 # ============================================================
@@ -305,13 +267,13 @@ def main():
     # 時系列CV（最適パラメータで）
     cv_results = time_series_cv(X, y, dates, feat_cols, lgb_params)
 
-    # 改善C: アンサンブル学習
-    models, importance = train_ensemble(X, y, feat_cols, lgb_params)
+    # LightGBM単体学習
+    model, importance = train_final_model(X, y, feat_cols, lgb_params)
 
     # モデル保存
     with open(MODEL_PATH, "wb") as f:
         pickle.dump({
-            "models":    models,
+            "model":     model,
             "feat_cols": feat_cols,
             "threshold": THRESHOLD,
             "lgb_params": lgb_params,
@@ -348,7 +310,6 @@ def main():
   Precision: {ev['precision']:.3f}
   Recall:    {ev['recall']:.3f}
   F1:        {ev['f1']:.3f}
-  アンサンブル: {list(models.keys())}
   モデル: {MODEL_PATH}
 ========================================
     """)
