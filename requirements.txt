@@ -36,3 +36,5 @@ pytest-cov==4.1.0
 # 機械学習
 lightgbm==4.3.0
 scikit-learn==1.4.0
+
+pyarrow
