@@ -286,7 +286,7 @@ def main():
         "total_records": len(df),
         "feature_cols":  feat_cols,
         "threshold":     THRESHOLD,
-        "ensemble":      list(models.keys()),
+        "ensemble":      ["lgb"],
         "lgb_params":    lgb_params,
         "cv_results":    cv_results,
         "feature_importance_top10": importance,
