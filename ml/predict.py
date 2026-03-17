@@ -1,11 +1,14 @@
 """
-PHASE 2: LightGBMモデル学習スクリプト（改善版）
-=============================================
-改善内容:
-  B. Optunaでハイパーパラメータ最適化
-  C. アンサンブル（LightGBM + XGBoost + RandomForest）
+PHASE 4: 日次MLシグナル予測スクリプト
+=======================================
+目的: 毎朝、当日の特徴量を計算してモデルで予測し、
+      高確率銘柄をDiscordに通知する
 
-目標: AUC改善 + 年率リターン維持
+実行タイミング: daily_scan.yml から呼び出される（毎朝6時）
+
+出力:
+  - data/ml/today_signals.json（当日のMLシグナル）
+  - Discord通知（prob >= SIGNAL_THRESHOLD の銘柄）
 """
 
 import os
@@ -15,7 +18,7 @@ import warnings
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from loguru import logger
 
 warnings.filterwarnings("ignore")
@@ -23,16 +26,21 @@ warnings.filterwarnings("ignore")
 # ============================================================
 # 設定
 # ============================================================
-DATA_PATH   = Path("data/ml/training_data.csv")
-OUTPUT_DIR  = Path("data/ml")
-MODEL_PATH  = OUTPUT_DIR / "model.pkl"
-INFO_PATH   = OUTPUT_DIR / "model_info.json"
+MODEL_PATH       = Path("data/ml/model.pkl")
+CACHE_PATH       = Path("data/cache/fundamental_cache.json")
+CONFIG_PATH      = Path("config/policy_keywords.yaml")
+SIGNAL_PATH      = Path("data/ml/today_signals.json")
+PRICE_CACHE_PATH = Path("data/cache/price_cache.pkl")
+CACHE_EXPIRE_HOURS = 18  # キャッシュ有効時間
+TRADES_PATH      = Path("data/ml/demo_trades.csv")
+SIGNAL_THRESHOLD = 0.55   # バックテストで最適化済み
+TOP_N            = 5      # Discord通知する上位銘柄数
 
-N_SPLITS    = 5
-EARLY_STOP  = 50
-THRESHOLD   = 0.35
-TRAIN_END   = "2021-12-31"
-OPTUNA_TRIALS = 30   # Optunaの試行回数
+JQUANTS_API_KEY  = os.environ.get("JQUANTS_API_KEY", "")
+DISCORD_WEBHOOK  = os.environ.get("DISCORD_WEBHOOK_URL", "")
+
+def _headers() -> dict:
+    return {"x-api-key": JQUANTS_API_KEY}
 
 # ============================================================
 # ロガー設定
@@ -43,278 +51,735 @@ logger.add(
     format="<green>{time:HH:mm:ss}</green> | <level>{level:<8}</level> | {message}\n",
     level="INFO"
 )
-logger.add(
-    "data/logs/train_model_{time:YYYYMMDD}.log",
-    rotation="1 day", retention="30 days", level="DEBUG"
-)
-
-# ============================================================
-# 特徴量リスト（新特徴量追加済み）
-# ============================================================
-FEATURE_COLS = [
-    "return_1d", "return_5d", "return_20d", "return_60d",
-    "ma5_dev", "ma25_dev", "ma75_dev", "above_ma75",
-    "rsi14", "bb_pct",
-    "macd_hist", "macd_golden",
-    "vol_ratio", "vol_surge_days",
-    "gc_25_75",
-    "from_high", "from_low",
-    "rci9", "rci26",
-    "ichi_tenkan_dev", "ichi_kijun_dev", "ichi_above_cloud",
-    "adx14",
-    "margin_ratio", "margin_ratio_chg",
-    "topix_return_5d", "topix_return_20d",
-    "per", "pbr", "roe", "roa",
-    "operating_margin", "revenue_growth",
-    "equity_ratio", "debt_to_equity",
-    "dividend_yield", "credit_score",
-    # 決算サプライズ
-    "earnings_surprise", "revenue_surprise", "days_since_earnings",
-]
+Path("data/logs").mkdir(parents=True, exist_ok=True)
+logger.add("data/logs/predict_{time:YYYYMMDD}.log", rotation="1 day", level="DEBUG")
 
 
 # ============================================================
-# 1. データ読み込み・前処理
+# 1. 銘柄リスト取得
 # ============================================================
-def load_data():
-    logger.info(f"データ読み込み中: {DATA_PATH}")
-    df = pd.read_csv(DATA_PATH, parse_dates=["date"])
-    logger.info(f"読み込み完了: {len(df):,}レコード")
+def get_tickers() -> list[str]:
+    """policy_keywords.yaml から銘柄リストを取得"""
+    import yaml
+    with open(CONFIG_PATH, encoding="utf-8") as f:
+        config = yaml.safe_load(f)
 
-    feat_cols = [c for c in FEATURE_COLS if c in df.columns]
-    logger.info(f"特徴量数: {len(feat_cols)}")
-
-    df = df[df["date"] <= TRAIN_END].copy()
-    logger.info(f"学習期間限定: 〜{TRAIN_END} ({len(df):,}レコード)")
-
-    df[feat_cols] = df[feat_cols].replace([np.inf, -np.inf], np.nan)
-    df = df.sort_values("date").reset_index(drop=True)
-
-    X     = df[feat_cols].values
-    y     = df["target"].values
-    dates = df["date"].values
-
-    logger.info(f"正例率: {y.mean():.1%}")
-    return df, X, y, dates, feat_cols
+    tickers = []
+    sectors = config.get("policy_sectors", {})
+    # policy_sectors は辞書形式: {sector_name: {ticker_list: [...]}}
+    for sector_name, sector_data in sectors.items():
+        if isinstance(sector_data, dict):
+            tickers.extend(sector_data.get("ticker_list", []))
+    tickers = [t.replace(".T", "") for t in tickers]
+    tickers = list(dict.fromkeys(tickers))  # 重複除去
+    logger.info(f"銘柄数: {len(tickers)}")
+    return tickers
 
 
 # ============================================================
-# 改善B: Optunaでハイパーパラメータ最適化
+# 2. J-Quants 銘柄マスタから会社名を取得
 # ============================================================
-def optimize_params(X, y, dates, feat_cols: list) -> dict:
-    """Optunaで最適パラメータを探索（最初のfoldのみで高速化）"""
+# ★ 銘柄名マスタ（config/stock_names.json から一元管理）
+def _load_stock_names() -> dict:
+    """stock_names.json を読み込み {4桁コード: 会社名} で返す"""
+    import json
+    paths = [
+        Path("config/stock_names.json"),
+        Path(__file__).parent.parent / "config/stock_names.json",
+    ]
+    for p in paths:
+        if p.exists():
+            with open(p, encoding="utf-8") as f:
+                return json.load(f)
+    return {}
+
+STOCK_NAME_MAP = _load_stock_names()
+
+def fetch_company_names() -> dict[str, str]:
+    """4桁コード → 会社名 の辞書を返す（.T付き・なし両対応）"""
+    # .T付きでもアクセスできるよう両方のキーを持つ辞書を返す
+    result = dict(STOCK_NAME_MAP)
+    for k, v in STOCK_NAME_MAP.items():
+        result[f"{k}.T"] = v  # "7011.T" → "三菱重工業" も追加
+    return result
+
+
+def get_company_name_yf(ticker: str) -> str:
+    # .T を除いた4桁コードで検索
+    code = ticker.replace(".T", "")
+    return STOCK_NAME_MAP.get(code, STOCK_NAME_MAP.get(ticker, ticker))
+
+
+# ============================================================
+# 2.5 信用倍率取得
+# ============================================================
+def fetch_margin_ratio(ticker: str) -> dict:
+    """直近の信用倍率を取得"""
+    import requests
     try:
-        import optuna
-        import lightgbm as lgb
-        from sklearn.model_selection import TimeSeriesSplit
-        from sklearn.metrics import roc_auc_score
-        optuna.logging.set_verbosity(optuna.logging.WARNING)
-    except ImportError:
-        logger.warning("Optunaが未インストール → デフォルトパラメータを使用")
-        return get_default_params()
+        code = ticker + "0" if len(ticker) == 4 else ticker
+        end_date   = datetime.now().strftime("%Y-%m-%d")
+        start_date = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
+        resp = requests.get(
+            "https://api.jquants.com/v2/markets/margin-interest",
+            headers=_headers(),
+            params={"code": code,
+                    "from": start_date.replace("-",""),
+                    "to":   end_date.replace("-","")},
+            timeout=10
+        )
+        data = resp.json().get("data", [])
+        if not data:
+            return {"margin_ratio": 2.0, "margin_ratio_chg": 0.0}
 
-    logger.info(f"Optuna最適化開始（{OPTUNA_TRIALS}試行）...")
+        def sf(v):
+            try: return float(v) if v else None
+            except: return None
 
-    # 最初の1foldだけ使って高速化
-    tscv = TimeSeriesSplit(n_splits=N_SPLITS)
-    splits = list(tscv.split(X))
-    train_idx, val_idx = splits[2]  # 3番目のfoldを使用
-    X_train, X_val = X[train_idx], X[val_idx]
-    y_train, y_val = y[train_idx], y[val_idx]
+        # 直近2件で変化率を計算
+        ratios = []
+        for d in sorted(data, key=lambda x: x.get("Date",""))[-3:]:
+            lv = sf(d.get("LongVol"))
+            sv = sf(d.get("ShrtVol"))
+            if lv and sv and sv > 0:
+                ratios.append(lv / sv)
 
-    def objective(trial):
-        params = {
-            "objective":        "binary",
-            "metric":           "auc",
-            "boosting_type":    "gbdt",
-            "verbose":          -1,
-            "random_state":     42,
-            "num_leaves":       trial.suggest_int("num_leaves", 20, 150),
-            "learning_rate":    trial.suggest_float("learning_rate", 0.01, 0.1, log=True),
-            "feature_fraction": trial.suggest_float("feature_fraction", 0.5, 1.0),
-            "bagging_fraction": trial.suggest_float("bagging_fraction", 0.5, 1.0),
-            "bagging_freq":     trial.suggest_int("bagging_freq", 1, 10),
-            "min_child_samples":trial.suggest_int("min_child_samples", 20, 100),
-            "lambda_l1":        trial.suggest_float("lambda_l1", 1e-4, 1.0, log=True),
-            "lambda_l2":        trial.suggest_float("lambda_l2", 1e-4, 1.0, log=True),
+        if not ratios:
+            return {"margin_ratio": 2.0, "margin_ratio_chg": 0.0}
+
+        latest = ratios[-1]
+        chg    = (ratios[-1] / ratios[-2] - 1) if len(ratios) >= 2 else 0.0
+        return {"margin_ratio": round(latest, 2), "margin_ratio_chg": round(chg, 4)}
+
+    except Exception as e:
+        logger.debug(f"{ticker} 信用倍率取得エラー: {e}")
+        return {"margin_ratio": 2.0, "margin_ratio_chg": 0.0}
+
+
+# ============================================================
+# 3. 価格キャッシュ管理
+# ============================================================
+def load_price_cache() -> dict | None:
+    """キャッシュが有効なら返す（18時間以内）"""
+    if not PRICE_CACHE_PATH.exists():
+        return None
+    try:
+        with open(PRICE_CACHE_PATH, "rb") as f:
+            cache = pickle.load(f)
+        cached_at = cache.get("_cached_at")
+        if cached_at is None:
+            return None
+        elapsed = (datetime.now() - cached_at).total_seconds() / 3600
+        if elapsed < CACHE_EXPIRE_HOURS:
+            logger.info(f"価格キャッシュ使用 (経過:{elapsed:.1f}時間 / 有効:{CACHE_EXPIRE_HOURS}時間) 銘柄数:{len(cache)-1}")
+            return {k: v for k, v in cache.items() if k != "_cached_at"}
+        else:
+            logger.info(f"価格キャッシュ期限切れ (経過:{elapsed:.1f}時間) → 再取得")
+            return None
+    except Exception as e:
+        logger.warning(f"キャッシュ読み込みエラー: {e}")
+        return None
+
+
+def save_price_cache(prices: dict):
+    """価格データをキャッシュに保存"""
+    try:
+        PRICE_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        cache = {"_cached_at": datetime.now(), **prices}
+        with open(PRICE_CACHE_PATH, "wb") as f:
+            pickle.dump(cache, f)
+        logger.info(f"価格キャッシュ保存: {len(prices)}銘柄 → {PRICE_CACHE_PATH}")
+    except Exception as e:
+        logger.warning(f"キャッシュ保存エラー: {e}")
+
+
+# ============================================================
+# 4. J-Quants 価格データ取得（直近90日）
+# ============================================================
+def fetch_prices(tickers: list[str]) -> dict[str, pd.DataFrame]:
+    """各銘柄の直近90日の価格を取得"""
+    import requests, time
+
+    end_date   = datetime.now().strftime("%Y-%m-%d")
+    start_date = (datetime.now() - timedelta(days=130)).strftime("%Y-%m-%d")
+
+    prices = {}
+    # 日付フォーマットをYYYYMMDDに変換（data_fetcher.pyと同じ）
+    start_fmt = start_date.replace("-", "")
+    end_fmt   = end_date.replace("-", "")
+
+    for i, ticker in enumerate(tickers):
+        try:
+            # 4桁コード → 5桁（末尾に0追加）
+            code = ticker + "0" if len(ticker) == 4 else ticker
+            resp = requests.get(
+                "https://api.jquants.com/v2/equities/bars/daily",
+                headers=_headers(),
+                params={"code": code, "from": start_fmt, "to": end_fmt},
+                timeout=10
+            )
+            if resp.status_code == 200:
+                data = resp.json().get("data", [])
+                if data:
+                    df = pd.DataFrame(data)
+                    # AdjC（調整後終値）またはC（終値）を使用
+                    if "AdjC" in df.columns:
+                        df = df.rename(columns={"Date": "Date", "AdjC": "AdjustmentClose", "AdjVo": "AdjustmentVolume"})
+                    else:
+                        df = df.rename(columns={"Date": "Date", "C": "AdjustmentClose", "Vo": "AdjustmentVolume"})
+                    df["Date"] = pd.to_datetime(df["Date"])
+                    df = df.sort_values("Date").reset_index(drop=True)
+                    prices[ticker] = df
+            if i % 30 == 0:
+                logger.info(f"  価格取得中: {i}/{len(tickers)}")
+            time.sleep(0.1)
+        except Exception as e:
+            logger.warning(f"  {ticker}: {e}")
+
+    logger.info(f"価格取得完了: {len(prices)}/{len(tickers)}銘柄")
+    return prices
+
+
+# ============================================================
+# 3. 特徴量計算（学習時と同じロジック）
+# ============================================================
+def calc_features(ticker: str, df: pd.DataFrame, fund: dict) -> dict | None:
+    """1銘柄の当日特徴量を計算"""
+    try:
+        if len(df) < 75:
+            return None
+
+        close = df["AdjustmentClose"].astype(float)
+        vol   = df["AdjustmentVolume"].astype(float)
+
+        # リターン
+        r = {
+            "return_1d":  float(close.pct_change(1).iloc[-1]),
+            "return_5d":  float(close.pct_change(5).iloc[-1]),
+            "return_20d": float(close.pct_change(20).iloc[-1]),
+            "return_60d": float(close.pct_change(60).iloc[-1]),
         }
-        dtrain = lgb.Dataset(X_train, label=y_train, feature_name=feat_cols)
-        dval   = lgb.Dataset(X_val, label=y_val, feature_name=feat_cols, reference=dtrain)
-        model  = lgb.train(
-            params, dtrain, num_boost_round=500,
-            valid_sets=[dval],
-            callbacks=[lgb.early_stopping(30, verbose=False), lgb.log_evaluation(period=-1)]
+
+        # 移動平均乖離
+        ma5  = close.rolling(5).mean()
+        ma25 = close.rolling(25).mean()
+        ma75 = close.rolling(75).mean()
+        c    = close.iloc[-1]
+
+        r["ma5_dev"]    = float((c / ma5.iloc[-1] - 1))
+        r["ma25_dev"]   = float((c / ma25.iloc[-1] - 1))
+        r["ma75_dev"]   = float((c / ma75.iloc[-1] - 1))
+        r["above_ma75"] = float(c > ma75.iloc[-1])
+        r["gc_25_75"]   = float(ma25.iloc[-1] > ma75.iloc[-1])
+
+        # 5MA関連（フィルター用）
+        c_prev        = close.iloc[-2]
+        ma5_today     = float(ma5.iloc[-1])
+        ma5_prev      = float(ma5.iloc[-2])
+        # 5MA上抜け: 前日終値が5MA以下 → 当日終値が5MA以上
+        r["ma5_breakout"] = float(c_prev <= ma5_prev and c >= ma5_today)
+        # 5MAからの乖離（すでにma5_devで計算済み）
+        # 5MA上に位置しているか
+        r["above_ma5"] = float(c >= ma5_today)
+
+        # RSI14
+        delta = close.diff()
+        gain  = delta.clip(lower=0).rolling(14).mean()
+        loss  = (-delta.clip(upper=0)).rolling(14).mean()
+        rs    = gain.iloc[-1] / loss.iloc[-1] if loss.iloc[-1] != 0 else 100
+        r["rsi14"] = float(100 - 100 / (1 + rs))
+
+        # ボリンジャーバンド %B
+        m20  = close.rolling(20).mean()
+        s20  = close.rolling(20).std()
+        r["bb_pct"] = float((c - (m20.iloc[-1] - 2*s20.iloc[-1])) /
+                             (4*s20.iloc[-1]) if s20.iloc[-1] != 0 else 0.5)
+
+        # MACD
+        ema12 = close.ewm(span=12).mean()
+        ema26 = close.ewm(span=26).mean()
+        macd  = ema12 - ema26
+        sig   = macd.ewm(span=9).mean()
+        r["macd_hist"]   = float(macd.iloc[-1] - sig.iloc[-1])
+        r["macd_golden"] = float(
+            (macd.iloc[-1] > sig.iloc[-1]) and (macd.iloc[-2] <= sig.iloc[-2])
         )
-        return roc_auc_score(y_val, model.predict(X_val))
 
-    study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=OPTUNA_TRIALS, show_progress_bar=False)
+        # 出来高比率
+        vol_ma = vol.rolling(20).mean()
+        r["vol_ratio"] = float(vol.iloc[-1] / vol_ma.iloc[-1]) if vol_ma.iloc[-1] > 0 else 1.0
 
-    best = study.best_params
-    best["objective"]    = "binary"
-    best["metric"]       = "auc"
-    best["boosting_type"]= "gbdt"
-    best["verbose"]      = -1
-    best["random_state"] = 42
+        # 52週高値・安値からの乖離
+        high52 = close.rolling(min(252, len(close))).max().iloc[-1]
+        low52  = close.rolling(min(252, len(close))).min().iloc[-1]
+        r["from_high"] = float(c / high52 - 1)
+        r["from_low"]  = float(c / low52 - 1)
 
-    logger.info(f"最適パラメータ: num_leaves={best['num_leaves']} lr={best['learning_rate']:.4f} AUC={study.best_value:.4f}")
-    return best
+        # ① RCI(9, 26)
+        def _rci(x):
+            n  = len(x)
+            pr = pd.Series(x).rank(ascending=False)
+            dr = pd.Series(range(1, n + 1))
+            return float((1 - 6 * ((dr - pr)**2).sum() / (n*(n**2-1))) * 100)
+        r["rci9"]  = close.rolling(9).apply(_rci,  raw=True).iloc[-1] if len(close) >= 9  else 0.0
+        r["rci26"] = close.rolling(26).apply(_rci, raw=True).iloc[-1] if len(close) >= 26 else 0.0
 
+        # ② 一目均衡表
+        high = df["AdjustmentClose"].astype(float)  # high/low 代替
+        if "AdjustmentClose" in df.columns:
+            h_ser = df["AdjustmentClose"].astype(float)
+            l_ser = df["AdjustmentClose"].astype(float)
+        else:
+            h_ser = close; l_ser = close
+        h9  = h_ser.rolling(9).max();  l9  = l_ser.rolling(9).min()
+        h26 = h_ser.rolling(26).max(); l26 = l_ser.rolling(26).min()
+        tenkan = (h9 + l9) / 2
+        kijun  = (h26 + l26) / 2
+        r["ichi_tenkan_dev"]  = float((c - tenkan.iloc[-1]) / tenkan.iloc[-1]) if tenkan.iloc[-1] != 0 else 0.0
+        r["ichi_kijun_dev"]   = float((c - kijun.iloc[-1])  / kijun.iloc[-1])  if kijun.iloc[-1]  != 0 else 0.0
+        h52 = h_ser.rolling(min(52, len(h_ser))).max()
+        l52 = l_ser.rolling(min(52, len(l_ser))).min()
+        span_a = ((tenkan + kijun) / 2).shift(26)
+        span_b = ((h52 + l52) / 2).shift(26)
+        cloud_top = max(span_a.iloc[-1] if not pd.isna(span_a.iloc[-1]) else 0,
+                        span_b.iloc[-1] if not pd.isna(span_b.iloc[-1]) else 0)
+        r["ichi_above_cloud"] = float(c > cloud_top) if cloud_top > 0 else 0.0
 
-def get_default_params() -> dict:
-    return {
-        "objective": "binary", "metric": "auc", "boosting_type": "gbdt",
-        "num_leaves": 63, "learning_rate": 0.05, "feature_fraction": 0.8,
-        "bagging_fraction": 0.8, "bagging_freq": 5, "min_child_samples": 50,
-        "lambda_l1": 0.1, "lambda_l2": 0.1, "verbose": -1, "random_state": 42,
-    }
+        # ③ ADX(14)
+        try:
+            hdiff = close.diff(); ldiff = close.diff()
+            pdm   = hdiff.where((hdiff > 0) & (hdiff > -ldiff), 0.0)
+            mdm   = (-ldiff).where((-ldiff > 0) & (-ldiff > hdiff), 0.0)
+            tr    = close.diff().abs()
+            atr14 = tr.ewm(span=14, adjust=False).mean()
+            pdi   = 100 * pdm.ewm(span=14, adjust=False).mean() / atr14.replace(0, np.nan)
+            mdi   = 100 * mdm.ewm(span=14, adjust=False).mean() / atr14.replace(0, np.nan)
+            dx    = 100 * (pdi - mdi).abs() / (pdi + mdi).replace(0, np.nan)
+            r["adx14"] = float(dx.ewm(span=14, adjust=False).mean().iloc[-1])
+        except:
+            r["adx14"] = 0.0
+
+        # ⑤ 出来高急増持続日数
+        vol_ma20   = vol.rolling(20).mean()
+        vol_ratio  = vol / vol_ma20.replace(0, np.nan)
+        surge      = (vol_ratio >= 2.0).astype(int)
+        surge_days = surge.groupby((surge != surge.shift()).cumsum()).cumcount() * surge
+        r["vol_surge_days"] = float(surge_days.iloc[-1])
+
+        # 信用倍率（実データ取得）
+        margin = fetch_margin_ratio(ticker)
+        r["margin_ratio"]     = margin["margin_ratio"]
+        r["margin_ratio_chg"] = margin["margin_ratio_chg"]
+
+        # TOPIX（後で追加）
+        r["topix_return_5d"]  = 0.0
+        r["topix_return_20d"] = 0.0
+
+        # ファンダメンタル
+        r["per"]              = float(fund.get("per", 15.0) or 15.0)
+        r["pbr"]              = float(fund.get("pbr", 1.0) or 1.0)
+        r["roe"]              = float(fund.get("roe", 5.0) or 5.0)
+        r["roa"]              = float(fund.get("roa", 3.0) or 3.0)
+        r["operating_margin"] = float(fund.get("operating_margin", 5.0) or 5.0)
+        r["revenue_growth"]   = float(fund.get("revenue_growth_rate", 0.0) or 0.0)
+        r["equity_ratio"]     = float(fund.get("equity_ratio", 40.0) or 40.0)
+        r["debt_to_equity"]   = float(fund.get("debt_to_equity", 1.0) or 1.0)
+        r["dividend_yield"]   = float(fund.get("dividend_yield", 2.0) or 2.0)
+        r["credit_score"]     = float(fund.get("credit_score", 50.0) or 50.0)
+
+        # 決算サプライズ（predict時はデフォルト値）
+        r["earnings_surprise"]   = 0.0
+        r["revenue_surprise"]    = 0.0
+        r["days_since_earnings"] = 30.0
+
+        # 異常値チェック
+        for k, v in r.items():
+            if not np.isfinite(v):
+                r[k] = 0.0
+
+        r["ticker"] = ticker
+        r["name"]   = str(fund.get("name", ticker))
+        return r
+
+    except Exception as e:
+        logger.debug(f"  {ticker} 特徴量計算エラー: {e}")
+        return None
 
 
 # ============================================================
-# 2. 時系列クロスバリデーション
+# 4. TOPIX直近リターンを取得して追加
 # ============================================================
-def time_series_cv(X, y, dates, feat_cols: list, lgb_params: dict) -> dict:
-    import lightgbm as lgb
-    from sklearn.model_selection import TimeSeriesSplit
-    from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score
-
-    tscv = TimeSeriesSplit(n_splits=N_SPLITS)
-    aucs, precisions, recalls, f1s = [], [], [], []
-    fold_results = []
-
-    logger.info(f"時系列CV開始（{N_SPLITS}分割）")
-
-    for fold, (train_idx, val_idx) in enumerate(tscv.split(X), 1):
-        X_train, X_val = X[train_idx], X[val_idx]
-        y_train, y_val = y[train_idx], y[val_idx]
-
-        train_date    = pd.Timestamp(dates[train_idx[-1]]).date()
-        val_date_from = pd.Timestamp(dates[val_idx[0]]).date()
-        val_date_to   = pd.Timestamp(dates[val_idx[-1]]).date()
-
-        logger.info(f"  Fold {fold}: 訓練〜{train_date} | 検証 {val_date_from}〜{val_date_to}")
-
-        dtrain = lgb.Dataset(X_train, label=y_train, feature_name=feat_cols)
-        dval   = lgb.Dataset(X_val,   label=y_val,   feature_name=feat_cols, reference=dtrain)
-
-        model = lgb.train(
-            lgb_params, dtrain, num_boost_round=1000,
-            valid_sets=[dval],
-            callbacks=[lgb.early_stopping(EARLY_STOP, verbose=False), lgb.log_evaluation(period=-1)]
+def fetch_topix_data() -> dict:
+    """TOPIXデータ取得（5d/20dリターン + 25MA判定）APIコール1回のみ"""
+    import requests
+    end_date   = datetime.now().strftime("%Y-%m-%d")
+    start_date = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
+    result = {"r5": 0.0, "r20": 0.0, "above_ma25": True, "current": 0.0}
+    try:
+        resp = requests.get(
+            "https://api.jquants.com/v2/indices/bars/daily/topix",
+            headers=_headers(),
+            params={"from": start_date, "to": end_date},
+            timeout=10
         )
+        body = resp.json()
+        data = body.get("data", body.get("indices", body.get("topix", [])))
+        if not data:
+            return result
+        sample    = data[0]
+        close_key = next((k for k in ["C", "Close", "close", "AdjustmentClose"] if k in sample), None)
+        if not close_key:
+            logger.warning(f"TOPIX closeキー不明: {list(sample.keys())}")
+            return result
+        closes = [float(d[close_key]) for d in data if d.get(close_key)]
+        if len(closes) < 6:
+            return result
+        current   = closes[-1]
+        ma25      = sum(closes[-25:]) / min(25, len(closes))
+        r5        = current / closes[-6]  - 1 if len(closes) >= 6  else 0.0
+        r20       = current / closes[-21] - 1 if len(closes) >= 21 else 0.0
+        above_ma25 = current >= ma25
+        logger.info(f"TOPIX: {current:.0f} 25MA:{ma25:.0f} {'✅上' if above_ma25 else '⚠️下'} 5d:{r5:+.2%} 20d:{r20:+.2%}")
+        result = {"r5": round(r5,4), "r20": round(r20,4), "above_ma25": above_ma25, "current": round(current,2)}
+    except Exception as e:
+        logger.warning(f"TOPIX取得エラー: {e}")
+    return result
 
-        y_pred_prob = model.predict(X_val)
-        y_pred      = (y_pred_prob >= THRESHOLD).astype(int)
 
-        auc  = roc_auc_score(y_val, y_pred_prob)
-        prec = precision_score(y_val, y_pred, zero_division=0)
-        rec  = recall_score(y_val, y_pred, zero_division=0)
-        f1   = f1_score(y_val, y_pred, zero_division=0)
 
-        aucs.append(auc); precisions.append(prec); recalls.append(rec); f1s.append(f1)
-        logger.info(f"    AUC:{auc:.3f} Precision:{prec:.3f} Recall:{rec:.3f} F1:{f1:.3f}")
 
-        fold_results.append({
-            "fold": fold, "auc": round(auc,4), "precision": round(prec,4),
-            "recall": round(rec,4), "f1": round(f1,4),
-            "val_from": str(val_date_from), "val_to": str(val_date_to),
+
+# ============================================================
+# 5. 予測実行
+# ============================================================
+def predict(features_list: list[dict], topix: dict) -> pd.DataFrame:
+    """モデルで予測確率を計算（アンサンブル対応）"""
+    with open(MODEL_PATH, "rb") as f:
+        saved = pickle.load(f)
+
+    feat_cols = saved["feat_cols"]
+    df = pd.DataFrame(features_list)
+
+    # TOPIX追加
+    df["topix_return_5d"]  = topix.get("r5", 0.0)
+    df["topix_return_20d"] = topix.get("r20", 0.0)
+
+    X = df[feat_cols].replace([np.inf, -np.inf], np.nan).fillna(0).values
+
+    # アンサンブル or 単体モデル対応
+    if "models" in saved:
+        # 新方式: アンサンブル
+        models  = saved["models"]
+        preds   = []
+        if "lgb" in models:
+            preds.append(models["lgb"].predict(X))
+        if "xgb" in models:
+            try:
+                import xgboost as xgb
+                dmat = xgb.DMatrix(X, feature_names=feat_cols)
+                preds.append(models["xgb"].predict(dmat))
+            except ImportError:
+                logger.warning("xgboost未インストール → スキップ")
+        if "rf" in models:
+            preds.append(models["rf"].predict_proba(np.nan_to_num(X))[:, 1])
+        df["pred_prob"] = np.mean(preds, axis=0) if preds else np.zeros(len(X))
+    else:
+        # 旧方式: 単体モデル（後方互換）
+        df["pred_prob"] = saved["model"].predict(X)
+    df = df.sort_values("pred_prob", ascending=False)
+    return df
+
+
+# ============================================================
+# 6. Discord通知
+# ============================================================
+def notify_discord(signals: pd.DataFrame, today_str: str, name_map: dict = {}, topix: dict = {}):
+    import requests
+
+    # 市場環境ヘッダー
+    topix_mark  = "✅25MA上" if topix.get("above_ma25", True) else "⚠️25MA下"
+    market_line = f"📊 TOPIX:{topix_mark}"
+
+    if signals.empty:
+        msg = f"🤖 **ML シグナル {today_str}**\n{market_line}\n該当銘柄なし（閾値: {SIGNAL_THRESHOLD}）"
+    else:
+        lines = [f"🤖 **ML シグナル {today_str}** （閾値: {SIGNAL_THRESHOLD}）", market_line, ""]
+        for i, (_, row) in enumerate(signals.iterrows(), 1):
+            ticker    = row["ticker"]
+            name      = name_map.get(ticker) or get_company_name_yf(ticker)
+            prob      = row["pred_prob"]
+            ret_1d    = row.get("return_1d", 0)
+            rsi       = row.get("rsi14", 0)
+            above_ma5 = row.get("above_ma5", 1.0)
+            ma5_break = row.get("ma5_breakout", 0.0)
+            vol_ratio = row.get("vol_ratio", 1.0)
+            ma5_mark  = "🔼5MA抜け " if ma5_break == 1.0 else ("📈5MA上 " if above_ma5 == 1.0 else "")
+            vol_mark  = "🔥出来高急増 " if vol_ratio >= 2.0 else ""
+
+            # ボリンジャーバンドシグナル
+            bb_pct_val = row.get("bb_pct", 0.5)
+            if bb_pct_val < 0.1 and ret_1d > 0:
+                bb_mark = "📉-2σ反発 "
+            elif bb_pct_val > 0.9 and ret_1d < 0:
+                bb_mark = "📈+2σ反落 "
+            elif 0.45 <= bb_pct_val <= 0.55 and ret_1d > 0:
+                bb_mark = "↩中央反発 "
+            else:
+                bb_mark = ""
+
+            lines.append(
+                f"**{i}. {name} ({ticker}.T)**  確率:{prob:.0%}  "
+                f"前日:{ret_1d:+.1%}  RSI:{rsi:.0f}  {ma5_mark}{vol_mark}{bb_mark}"
+            )
+        msg = "\n".join(lines)
+
+    resp = requests.post(DISCORD_WEBHOOK, json={"content": msg})
+    logger.info(f"Discord通知: {resp.status_code} | {len(signals)}銘柄")
+
+
+# ============================================================
+# デモ取引管理
+# ============================================================
+HOLD_DAYS_TRADE = 5  # 保有期間（営業日ではなく暦日で近似）
+
+def get_current_price(ticker: str, prices: dict = {}) -> float | None:
+    """当日の終値を取得（価格キャッシュから）"""
+    try:
+        df = prices.get(ticker)
+        if df is not None and not df.empty:
+            # AdjustmentClose列があれば使用
+            if "AdjustmentClose" in df.columns:
+                return float(df["AdjustmentClose"].iloc[-1])
+            elif "close" in df.columns:
+                return float(df["close"].iloc[-1])
+    except Exception as e:
+        logger.warning(f"{ticker} 価格取得エラー: {e}")
+    return None
+
+
+def record_entry(signals: pd.DataFrame, today_str: str, name_map: dict, prices: dict = {}):
+    """新規シグナルをdemo_trades.csvに追記（重複チェック付き）"""
+    if signals.empty:
+        return
+
+    # 既存CSVを読み込み
+    if TRADES_PATH.exists():
+        existing = pd.read_csv(TRADES_PATH, dtype=str)
+        # 当日・同銘柄の重複チェック
+        already = set(
+            zip(existing["entry_date"].tolist(), existing["ticker"].tolist())
+        )
+    else:
+        existing = pd.DataFrame()
+        already  = set()
+
+    rows = []
+    for _, row in signals.iterrows():
+        ticker = row["ticker"]
+
+        # 重複スキップ
+        if (today_str, ticker) in already:
+            logger.info(f"重複スキップ: {ticker} ({today_str})")
+            continue
+
+        price      = get_current_price(ticker, prices) or 0.0
+        exit_date  = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+        ma5_signal = "🔼抜け" if row.get("ma5_breakout", 0) == 1.0 else ("📈上" if row.get("above_ma5", 0) == 1.0 else "")
+
+        rows.append({
+            "entry_date":   today_str,
+            "ticker":       ticker,
+            "name":         name_map.get(ticker, ticker),
+            "prob":         round(float(row["pred_prob"]), 3),
+            "ma5_signal":   ma5_signal,
+            "entry_price":  price,
+            "exit_date":    exit_date,
+            "exit_price":   "",
+            "return":       "",
+            "win":          "",
         })
 
-    cv_results = {
-        "auc_mean": round(float(np.mean(aucs)), 4),
-        "auc_std":  round(float(np.std(aucs)), 4),
-        "precision_mean": round(float(np.mean(precisions)), 4),
-        "recall_mean":    round(float(np.mean(recalls)), 4),
-        "f1_mean":        round(float(np.mean(f1s)), 4),
-        "folds": fold_results,
-    }
-    logger.info(f"CV結果: AUC={cv_results['auc_mean']:.3f}±{cv_results['auc_std']:.3f}")
-    return cv_results
+    if not rows:
+        logger.info("新規追記なし（全て重複）")
+        return
+
+    new_df   = pd.DataFrame(rows)
+    combined = pd.concat([existing, new_df], ignore_index=True) if not existing.empty else new_df
+    combined.to_csv(TRADES_PATH, index=False, encoding="utf-8-sig")
+    logger.info(f"デモ取引記録: {len(rows)}件追記 → {TRADES_PATH}")
 
 
-# ============================================================
-# 3. 最終モデル学習（LightGBM単体）
-# ============================================================
-def train_final_model(X, y, feat_cols: list, lgb_params: dict):
-    """LightGBM単体で最終モデルを学習"""
-    import lightgbm as lgb
+def update_exits(today_str: str):
+    """決済予定日を過ぎた未決済行の損益を自動計算"""
+    if not TRADES_PATH.exists():
+        return
 
-    logger.info("LightGBM最終モデル学習中...")
-    dtrain = lgb.Dataset(X, label=y, feature_name=feat_cols)
-    model  = lgb.train(lgb_params, dtrain, num_boost_round=500)
+    df = pd.read_csv(TRADES_PATH, dtype=str)
+    updated = 0
 
-    importance = dict(zip(feat_cols, model.feature_importance(importance_type="gain").tolist()))
-    importance_sorted = dict(sorted(importance.items(), key=lambda x: x[1], reverse=True)[:10])
+    for idx, row in df.iterrows():
+        # 未決済かつ決済予定日を過ぎている
+        if str(row.get("exit_price", "")).strip() != "":
+            continue
+        try:
+            exit_date = datetime.strptime(str(row["exit_date"]), "%Y-%m-%d")
+        except Exception:
+            continue
+        if datetime.now() < exit_date:
+            continue
 
-    logger.info("特徴量重要度 TOP10:")
-    for feat, imp in importance_sorted.items():
-        logger.info(f"  {feat:<25}: {imp:.1f}")
+        ticker      = str(row["ticker"])
+        entry_price = float(row["entry_price"]) if str(row["entry_price"]) not in ("", "0.0", "0") else None
+        if entry_price is None or entry_price == 0:
+            continue
 
-    return model, importance_sorted
+        exit_price = get_current_price(ticker)
+        if exit_price is None or exit_price == 0:
+            continue
+
+        ret = (exit_price - entry_price) / entry_price
+        win = "✅" if ret > 0 else "❌"
+
+        df.at[idx, "exit_price"] = round(exit_price, 2)
+        df.at[idx, "return"]     = round(ret, 4)
+        df.at[idx, "win"]        = win
+        updated += 1
+        logger.info(f"決済更新: {ticker} {ret:+.1%} {win}")
+
+    if updated > 0:
+        df.to_csv(TRADES_PATH, index=False, encoding="utf-8-sig")
+        logger.info(f"決済更新: {updated}件完了")
 
 
 # ============================================================
 # メイン処理
 # ============================================================
 def main():
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    Path("data/logs").mkdir(parents=True, exist_ok=True)
+    Path("data/ml").mkdir(parents=True, exist_ok=True)
 
-    # データ読み込み（改善A適用）
-    df, X, y, dates, feat_cols = load_data()
+    if not MODEL_PATH.exists():
+        logger.error(f"モデルが見つかりません: {MODEL_PATH}")
+        logger.error("PHASE 2 を先に実行してください")
+        return
 
-    # 改善B: Optuna最適化
-    lgb_params = optimize_params(X, y, dates, feat_cols)
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    logger.info(f"=== ML日次予測 {today_str} ===")
 
-    # 時系列CV（最適パラメータで）
-    cv_results = time_series_cv(X, y, dates, feat_cols, lgb_params)
+    # 銘柄リスト
+    tickers = get_tickers()
 
-    # LightGBM単体学習
-    model, importance = train_final_model(X, y, feat_cols, lgb_params)
+    # 会社名マップ取得
+    name_map  = fetch_company_names()
 
-    # モデル保存
-    with open(MODEL_PATH, "wb") as f:
-        pickle.dump({
-            "model":     model,
-            "feat_cols": feat_cols,
-            "threshold": THRESHOLD,
-            "lgb_params": lgb_params,
-        }, f)
-    logger.info(f"モデル保存: {MODEL_PATH}")
+    # 価格データ取得（キャッシュ優先）
+    raw_cache = load_price_cache()
+    if raw_cache is None:
+        prices = fetch_prices(tickers)
+        save_price_cache(prices)
+    else:
+        logger.info("→ APIコールをスキップしました")
+        # main.py のキャッシュ形式に対応:
+        # {ticker: DataFrame} または {ticker: {"price_history": DataFrame, ...}}
+        prices = {}
+        for ticker, val in raw_cache.items():
+            if isinstance(val, dict) and "price_history" in val:
+                # main.py 形式 → DataFrameを取り出す
+                # predict.py のfetch_prices形式に変換
+                ph = val["price_history"]
+                if ph is not None and not ph.empty:
+                    # predict.py はAdjustmentClose列を期待
+                    import pandas as pd
+                    df2 = ph.reset_index()
+                    df2 = df2.rename(columns={
+                        "date": "Date",
+                        "close": "AdjustmentClose",
+                        "volume": "AdjustmentVolume",
+                    })
+                    df2["Date"] = pd.to_datetime(df2["Date"])
+                    prices[ticker] = df2
+            else:
+                # predict.py 形式（そのまま使用）
+                prices[ticker] = val
 
-    # メタ情報保存
-    model_info = {
-        "created_at":    datetime.now().isoformat(),
-        "total_records": len(df),
-        "feature_cols":  feat_cols,
-        "threshold":     THRESHOLD,
-        "ensemble":      ["lgb"],
-        "lgb_params":    lgb_params,
-        "cv_results":    cv_results,
-        "feature_importance_top10": importance,
-        "evaluation": {
-            "auc":       cv_results["auc_mean"],
-            "precision": cv_results["precision_mean"],
-            "recall":    cv_results["recall_mean"],
-            "f1":        cv_results["f1_mean"],
-            "判定": "✅ 有効" if cv_results["auc_mean"] >= 0.55 else "⚠️ 要改善",
-        }
+    # TOPIX
+    topix    = fetch_topix_data()
+
+    # ファンダメンタルキャッシュ読み込み
+    fund_cache = {}
+    if CACHE_PATH.exists():
+        with open(CACHE_PATH, encoding="utf-8") as f:
+            fund_cache = json.load(f)
+    logger.info(f"ファンダメンタルキャッシュ: {len(fund_cache)}銘柄")
+
+    # 特徴量計算
+    features_list = []
+    for ticker, df in prices.items():
+        fund = fund_cache.get(ticker, {})
+        feat = calc_features(ticker, df, fund)
+        if feat:
+            features_list.append(feat)
+
+    logger.info(f"特徴量計算完了: {len(features_list)}銘柄")
+
+    if not features_list:
+        logger.error("特徴量が計算できませんでした")
+        return
+
+    # 予測
+    pred_df = predict(features_list, topix)
+
+    # 前日シグナルを読み込み（重複除外用）
+    prev_tickers = set()
+    if SIGNAL_PATH.exists():
+        try:
+            with open(SIGNAL_PATH, encoding="utf-8") as f:
+                prev = json.load(f)
+            # 前日のデータなら除外対象にする
+            if prev.get("date") != today_str:
+                prev_tickers = {s["ticker"] for s in prev.get("signals", [])}
+                logger.info(f"前日シグナル除外: {prev_tickers}")
+        except Exception:
+            pass
+
+    # シグナル抽出（前日と重複しない新規銘柄のみ・上位TOP_N件）
+    all_signals = pred_df[pred_df["pred_prob"] >= SIGNAL_THRESHOLD]
+
+    # 5MAフィルター: 5MA上に位置している銘柄のみ（上抜け or 上位にある）
+    if "above_ma5" in all_signals.columns:
+        ma5_filtered = all_signals[all_signals["above_ma5"] == 1.0]
+        logger.info(f"5MAフィルター後: {len(ma5_filtered)} / {len(all_signals)}銘柄")
+        # フィルター後に5件未満なら緩めてフィルター前に戻す
+        if len(ma5_filtered) >= 3:
+            all_signals = ma5_filtered
+
+    new_signals = all_signals[~all_signals["ticker"].isin(prev_tickers)]
+    # 市場環境フィルター: TOPIX25MA以下なら最大3件に絞る
+    max_signals = 3 if not topix.get("above_ma25", True) else TOP_N
+    signals = new_signals.head(max_signals)
+    logger.info(f"シグナル銘柄数: {len(signals)} 新規 / {len(all_signals)} 全体 (閾値:{SIGNAL_THRESHOLD})")
+
+    # 保存
+    output = {
+        "date":       today_str,
+        "threshold":  SIGNAL_THRESHOLD,
+        "total_analyzed": len(pred_df),
+        "signals": signals[["ticker", "pred_prob", "return_1d", "rsi14", "ma25_dev"]].to_dict("records") if not signals.empty else [],
+        "top20": pred_df.head(20)[["ticker", "pred_prob"]].to_dict("records"),
     }
-    with open(INFO_PATH, "w", encoding="utf-8") as f:
-        json.dump(model_info, f, ensure_ascii=False, indent=2)
+    with open(SIGNAL_PATH, "w", encoding="utf-8") as f:
+        json.dump(output, f, ensure_ascii=False, indent=2)
 
-    ev = model_info["evaluation"]
-    logger.success(f"""
-========================================
-  PHASE 2 完了（改善版）
-========================================
-  AUC:       {ev['auc']:.3f}  {ev['判定']}
-  Precision: {ev['precision']:.3f}
-  Recall:    {ev['recall']:.3f}
-  F1:        {ev['f1']:.3f}
-  モデル: {MODEL_PATH}
-========================================
-    """)
+    # Discord通知
+    if DISCORD_WEBHOOK:
+        notify_discord(signals, today_str, name_map, topix)
+    else:
+        logger.warning("DISCORD_WEBHOOK_URL が未設定")
+
+    # デモ取引記録
+    update_exits(today_str)          # 既存の未決済行を更新
+    record_entry(signals, today_str, name_map, prices)  # 新規シグナルを追記
+
+    logger.success(f"完了: {len(signals)}件のMLシグナルを通知")
 
 
 if __name__ == "__main__":
