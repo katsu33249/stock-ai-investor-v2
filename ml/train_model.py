@@ -2,11 +2,10 @@
 PHASE 2: LightGBMモデル学習スクリプト（改善版）
 =============================================
 改善内容:
-  A. 市場上昇日を正例から除外（ノイズ削減）
   B. Optunaでハイパーパラメータ最適化
   C. アンサンブル（LightGBM + XGBoost + RandomForest）
 
-目標: AUC 0.591 → 0.62〜0.64
+目標: AUC改善 + 年率リターン維持
 """
 
 import os
@@ -85,17 +84,6 @@ def load_data():
 
     df = df[df["date"] <= TRAIN_END].copy()
     logger.info(f"学習期間限定: 〜{TRAIN_END} ({len(df):,}レコード)")
-
-    # ============================================================
-    # 改善A: 市場上昇日の正例を除外
-    # TOPIXが5日で+2%以上の日は「地合いで上がっただけ」→ 正例から除外
-    # ============================================================
-    if "topix_return_5d" in df.columns:
-        market_up_mask = df["topix_return_5d"] >= 0.02
-        before = df["target"].sum()
-        df.loc[market_up_mask, "target"] = 0
-        after  = df["target"].sum()
-        logger.info(f"改善A: 市場上昇日除外 正例 {before:,} → {after:,} ({before-after:,}件除外)")
 
     df[feat_cols] = df[feat_cols].replace([np.inf, -np.inf], np.nan)
     df = df.sort_values("date").reset_index(drop=True)
