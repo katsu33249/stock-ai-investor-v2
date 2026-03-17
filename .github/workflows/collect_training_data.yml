@@ -8,9 +8,9 @@ on:
 
 jobs:
   collect-training-data:
-    name: 学習データ収集（178銘柄 × 10年）
+    name: 学習データ収集（東証プライム全銘柄 × 10年）
     runs-on: ubuntu-latest
-    timeout-minutes: 120  # 最大2時間
+    timeout-minutes: 330  # 最大5.5時間（Actions上限6時間）
 
     steps:
       - name: 📥 リポジトリ取得
@@ -56,6 +56,7 @@ jobs:
         with:
           name: training-data-${{ github.run_number }}
           path: |
+            data/ml/training_data.parquet
             data/ml/training_data.csv
             data/ml/feature_info.json
           retention-days: 90
