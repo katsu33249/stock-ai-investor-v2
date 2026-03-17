@@ -338,7 +338,73 @@ def calc_target(df: pd.DataFrame, topix_df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ============================================================
-# 7. ファンダメンタル
+# 7. 決算サプライズ取得
+# ============================================================
+def fetch_earnings_surprise(ticker: str, start_str: str, end_str: str) -> pd.DataFrame:
+    """J-Quants /v2/fins/statements から決算サプライズを計算"""
+    code = ticker.replace(".T", "")
+    res = requests.get(
+        f"{JQUANTS_BASE_URL}/fins/statements",
+        headers=_headers(),
+        params={"code": code},
+        timeout=30
+    )
+    if res.status_code != 200:
+        return pd.DataFrame()
+    data = res.json().get("data", [])
+    if not data:
+        return pd.DataFrame()
+
+    rows = []
+    for d in data:
+        try:
+            disc_date = pd.to_datetime(d.get("DisclosedDate",""))
+            if pd.isna(disc_date):
+                continue
+            net_actual   = float(d.get("NetIncome", 0) or 0)
+            net_forecast = float(d.get("ForecastNetIncome", 0) or 0)
+            earn_surp = (net_actual / net_forecast - 1) if net_forecast != 0 else None
+            rev_actual   = float(d.get("NetSales", 0) or 0)
+            rev_forecast = float(d.get("ForecastNetSales", 0) or 0)
+            rev_surp = (rev_actual / rev_forecast - 1) if rev_forecast != 0 else None
+            rows.append({
+                "date":              disc_date,
+                "earnings_surprise": earn_surp,
+                "revenue_surprise":  rev_surp,
+                "earnings_date":     disc_date,
+            })
+        except:
+            continue
+
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows).sort_values("date").reset_index(drop=True)
+
+
+def add_earnings_features(price_df: pd.DataFrame, ticker: str,
+                          start_str: str, end_str: str) -> pd.DataFrame:
+    """決算サプライズ特徴量を追加"""
+    earn_df = fetch_earnings_surprise(ticker, start_str, end_str)
+    if earn_df.empty:
+        price_df["earnings_surprise"]   = None
+        price_df["revenue_surprise"]    = None
+        price_df["days_since_earnings"] = None
+        return price_df
+
+    price_df = pd.merge_asof(
+        price_df.sort_values("date"),
+        earn_df.sort_values("date"),
+        on="date", direction="backward"
+    )
+    price_df["days_since_earnings"] = (
+        price_df["date"] - price_df["earnings_date"]
+    ).dt.days.clip(upper=90)
+    price_df = price_df.drop(columns=["earnings_date"], errors="ignore")
+    return price_df
+
+
+# ============================================================
+# 8. ファンダメンタル
 # ============================================================
 def load_fundamental_cache() -> dict:
     if not CACHE_PATH.exists():
@@ -384,6 +450,8 @@ FEATURE_COLS = [
     "per","pbr","roe","roa",
     "operating_margin","revenue_growth",
     "equity_ratio","debt_to_equity","dividend_yield","credit_score",
+    # 決算サプライズ
+    "earnings_surprise","revenue_surprise","days_since_earnings",
 ]
 
 
@@ -449,6 +517,9 @@ def main():
 
             # 目的変数（TOPIXアルファ）
             price_df = calc_target(price_df, topix_df)
+
+            # 決算サプライズ
+            price_df = add_earnings_features(price_df, ticker, start_str, end_str)
 
             # ファンダメンタル
             price_df = add_fundamental(price_df, ticker, fund_cache)
