@@ -53,21 +53,37 @@ def _headers() -> dict:
 # 1. 東証プライム銘柄リスト取得
 # ============================================================
 def get_prime_tickers() -> list:
-    """東証プライム全銘柄コードを取得"""
-    logger.info("東証プライム銘柄リスト取得中...")
+    """
+    東証上場銘柄コードを取得
+    方式: 直近営業日の株価データから全銘柄を取得
+         （equities/masterのハング問題を回避）
+    """
+    logger.info("東証上場銘柄リスト取得（株価データから）...")
+
+    # 直近の平日を取得
+    for delta in range(7):
+        d = datetime.now() - timedelta(days=delta+1)
+        if d.weekday() < 5:
+            date_str = d.strftime("%Y%m%d")
+            break
+
+    logger.info(f"基準日: {date_str}")
     all_data = []
-    today    = datetime.now().strftime("%Y%m%d")
-    params   = {"date": today}
+    params   = {"date": date_str}
 
     while True:
         res = requests.get(
-            f"{JQUANTS_BASE_URL}/equities/master",
+            f"{JQUANTS_BASE_URL}/equities/bars/daily",
             headers=_headers(),
             params=params,
-            timeout=30
+            timeout=60
         )
+        if res.status_code == 429:
+            logger.warning("レート制限 → 30秒待機")
+            time.sleep(30)
+            continue
         if res.status_code != 200:
-            logger.error(f"銘柄リスト取得失敗: {res.status_code} {res.text[:200]}")
+            logger.error(f"取得失敗: {res.status_code}")
             break
 
         body = res.json()
@@ -77,43 +93,25 @@ def get_prime_tickers() -> list:
         pagination_key = body.get("pagination_key")
         if not pagination_key:
             break
-        # pagination_key使用時はdateを除去
         params = {"pagination_key": pagination_key}
-        time.sleep(SLEEP_SEC)
+        time.sleep(0.1)
 
-    # デバッグ: 実際のフィールド値を確認
-    if all_data:
-        sample = all_data[0]
-        logger.info(f"サンプル: Mkt={sample.get('Mkt')} MktNm={sample.get('MktNm')}")
-        mkt_vals  = set(str(d.get("Mkt",""))   for d in all_data[:200])
-        mktnm_vals = set(str(d.get("MktNm","")) for d in all_data[:200])
-        logger.info(f"Mktユニーク値: {mkt_vals}")
-        logger.info(f"MktNmユニーク値: {mktnm_vals}")
+    logger.info(f"全上場銘柄数: {len(all_data)}")
 
-    # 東証プライム絞り込み（V2フィールド名: Mkt/MktNm）
-    prime = [
-        d for d in all_data
-        if (
-            str(d.get("Mkt", "")) == "0111" or
-            str(d.get("Mkt", "")) == "111" or
-            "プライム" in str(d.get("MktNm", "")) or
-            "Prime" in str(d.get("MktNm", "")) or
-            # 旧フィールド名も念のため対応
-            str(d.get("MarketCode", "")) == "0111" or
-            "プライム" in str(d.get("MarketCodeName", ""))
-        )
-        and d.get("Code")
-    ]
-    logger.info(f"プライム候補: {len(prime)}社 / 全{len(all_data)}社")
-    # 5桁コードを4桁+.T形式に変換
+    # 5桁コード末尾0 = 普通株式、出来高>0 = 流動性あり
     tickers = []
-    for d in prime:
-        code = str(d["Code"])
-        if code.endswith("0") and len(code) == 5:
-            tickers.append(code[:4] + ".T")
+    for d in all_data:
+        code = str(d.get("Code", ""))
+        if len(code) == 5 and code.endswith("0"):
+            vol = d.get("Vo") or d.get("AdjVo") or 0
+            try:
+                if float(vol) > 0:
+                    tickers.append(code[:4] + ".T")
+            except:
+                pass
 
     tickers = sorted(list(set(tickers)))
-    logger.success(f"東証プライム銘柄数: {len(tickers)}社")
+    logger.success(f"取得銘柄数: {len(tickers)}社")
     return tickers
 
 
