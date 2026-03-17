@@ -269,8 +269,60 @@ def calc_features(ticker: str, df: pd.DataFrame, fund: dict) -> dict | None:
         r["from_high"] = float(c / high52 - 1)
         r["from_low"]  = float(c / low52 - 1)
 
+        # ① RCI(9, 26)
+        def _rci(x):
+            n  = len(x)
+            pr = pd.Series(x).rank(ascending=False)
+            dr = pd.Series(range(1, n + 1))
+            return float((1 - 6 * ((dr - pr)**2).sum() / (n*(n**2-1))) * 100)
+        r["rci9"]  = close.rolling(9).apply(_rci,  raw=True).iloc[-1] if len(close) >= 9  else 0.0
+        r["rci26"] = close.rolling(26).apply(_rci, raw=True).iloc[-1] if len(close) >= 26 else 0.0
+
+        # ② 一目均衡表
+        high = df["AdjustmentClose"].astype(float)  # high/low 代替
+        if "AdjustmentClose" in df.columns:
+            h_ser = df["AdjustmentClose"].astype(float)
+            l_ser = df["AdjustmentClose"].astype(float)
+        else:
+            h_ser = close; l_ser = close
+        h9  = h_ser.rolling(9).max();  l9  = l_ser.rolling(9).min()
+        h26 = h_ser.rolling(26).max(); l26 = l_ser.rolling(26).min()
+        tenkan = (h9 + l9) / 2
+        kijun  = (h26 + l26) / 2
+        r["ichi_tenkan_dev"]  = float((c - tenkan.iloc[-1]) / tenkan.iloc[-1]) if tenkan.iloc[-1] != 0 else 0.0
+        r["ichi_kijun_dev"]   = float((c - kijun.iloc[-1])  / kijun.iloc[-1])  if kijun.iloc[-1]  != 0 else 0.0
+        h52 = h_ser.rolling(min(52, len(h_ser))).max()
+        l52 = l_ser.rolling(min(52, len(l_ser))).min()
+        span_a = ((tenkan + kijun) / 2).shift(26)
+        span_b = ((h52 + l52) / 2).shift(26)
+        cloud_top = max(span_a.iloc[-1] if not pd.isna(span_a.iloc[-1]) else 0,
+                        span_b.iloc[-1] if not pd.isna(span_b.iloc[-1]) else 0)
+        r["ichi_above_cloud"] = float(c > cloud_top) if cloud_top > 0 else 0.0
+
+        # ③ ADX(14)
+        try:
+            hdiff = close.diff(); ldiff = close.diff()
+            pdm   = hdiff.where((hdiff > 0) & (hdiff > -ldiff), 0.0)
+            mdm   = (-ldiff).where((-ldiff > 0) & (-ldiff > hdiff), 0.0)
+            tr    = close.diff().abs()
+            atr14 = tr.ewm(span=14, adjust=False).mean()
+            pdi   = 100 * pdm.ewm(span=14, adjust=False).mean() / atr14.replace(0, np.nan)
+            mdi   = 100 * mdm.ewm(span=14, adjust=False).mean() / atr14.replace(0, np.nan)
+            dx    = 100 * (pdi - mdi).abs() / (pdi + mdi).replace(0, np.nan)
+            r["adx14"] = float(dx.ewm(span=14, adjust=False).mean().iloc[-1])
+        except:
+            r["adx14"] = 0.0
+
+        # ⑤ 出来高急増持続日数
+        vol_ma20   = vol.rolling(20).mean()
+        vol_ratio  = vol / vol_ma20.replace(0, np.nan)
+        surge      = (vol_ratio >= 2.0).astype(int)
+        surge_days = surge.groupby((surge != surge.shift()).cumsum()).cumcount() * surge
+        r["vol_surge_days"] = float(surge_days.iloc[-1])
+
         # 信用倍率（デフォルト値）
-        r["margin_ratio"] = float(fund.get("margin_ratio", 2.0))
+        r["margin_ratio"]     = float(fund.get("margin_ratio", 2.0))
+        r["margin_ratio_chg"] = 0.0
 
         # TOPIX（後で追加）
         r["topix_return_5d"]  = 0.0
