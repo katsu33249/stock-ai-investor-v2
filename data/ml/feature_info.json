@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-03-17T01:33:08.361399",
+  "created_at": "2026-03-17T08:07:57.906369",
   "tickers": [
     "1662.T",
     "1801.T",
@@ -20,6 +20,7 @@
     "3491.T",
     "3496.T",
     "3498.T",
+    "3668.T",
     "3692.T",
     "3697.T",
     "3769.T",
@@ -180,8 +181,8 @@
     "9719.T",
     "9984.T"
   ],
-  "total_records": 351275,
-  "positive_rate": 0.26533058145327737,
+  "total_records": 353886,
+  "positive_rate": 0.284829012732914,
   "feature_cols": [
     "return_1d",
     "return_5d",
@@ -196,6 +197,7 @@
     "macd_hist",
     "macd_golden",
     "vol_ratio",
+    "vol_surge_days",
     "gc_25_75",
     "from_high",
     "from_low",
@@ -207,7 +209,6 @@
     "adx14",
     "margin_ratio",
     "margin_ratio_chg",
-    "vol_surge_days",
     "topix_return_5d",
     "topix_return_20d",
     "per",
@@ -221,10 +222,8 @@
     "dividend_yield",
     "credit_score"
   ],
-  "target_days": 5,
-  "target_return": 0.03,
-  "date_range": {
-    "from": "2016-03-22 00:00:00",
-    "to": "2026-03-16 00:00:00"
-  }
+  "target_type": "topix_alpha",
+  "target_alpha": 0.02,
+  "parquet_size_mb": 34.2,
+  "csv_size_mb": 106.5
 }
