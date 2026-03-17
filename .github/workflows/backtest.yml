@@ -1,4 +1,4 @@
-name: 📊 ML PHASE 2 - モデル学習
+name: 📈 ML PHASE 3 - バックテスト
 
 on:
   workflow_dispatch:
@@ -13,9 +13,9 @@ permissions:
   actions: read
 
 jobs:
-  train:
+  backtest:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
 
     steps:
       - name: リポジトリをチェックアウト
@@ -33,7 +33,6 @@ jobs:
             lightgbm \
             xgboost \
             scikit-learn \
-            optuna \
             pyarrow \
             pandas \
             numpy \
@@ -50,71 +49,68 @@ jobs:
           path: data/ml/
           search_artifacts: true
 
-      - name: ダウンロード確認
+      - name: PHASE 2 Artifact（学習済みモデル）をダウンロード
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: train_model.yml
+          name_is_regexp: true
+          name: ml-model-.*
+          path: data/ml/
+          search_artifacts: true
+
+      - name: ファイル整理（サブフォルダから移動）
         run: |
-          ls -lh data/ml/
-          # サブフォルダに展開されるので移動
+          echo "=== ダウンロード後のファイル構造 ==="
+          find data/ml/ -type f | sort
+          # model.pkl をルートにコピー
+          PKL=$(find data/ml/ -name "model.pkl" | head -1)
           CSV=$(find data/ml/ -name "training_data.csv" | head -1)
           PQT=$(find data/ml/ -name "training_data.parquet" | head -1)
-          if [ -n "$CSV" ]; then cp "$CSV" data/ml/training_data.csv && echo "CSV: OK"; fi
-          if [ -n "$PQT" ]; then cp "$PQT" data/ml/training_data.parquet && echo "Parquet: OK"; fi
-          RECORDS=$(python3 -c "
-          import pandas as pd
-          from pathlib import Path
-          if Path('data/ml/training_data.parquet').exists():
-              df = pd.read_parquet('data/ml/training_data.parquet')
-          else:
-              df = pd.read_csv('data/ml/training_data.csv')
-          print(f'{len(df):,}')
-          ")
-          echo "✅ 学習データ: ${RECORDS}レコード"
+          if [ -n "$PKL" ]; then cp "$PKL" data/ml/model.pkl && echo "model.pkl: OK"; fi
+          if [ -n "$CSV" ]; then cp "$CSV" data/ml/training_data.csv && echo "training_data.csv: OK"; fi
+          if [ -n "$PQT" ]; then cp "$PQT" data/ml/training_data.parquet && echo "training_data.parquet: OK"; fi
+          if [ -z "$CSV" ] && [ -z "$PQT" ]; then echo "ERROR: 学習データなし" && exit 1; fi
+          echo "=== 整理後 ==="
+          ls -lh data/ml/
 
-      - name: 🤖 LightGBMモデル学習
+      - name: 📈 バックテスト実行
         run: |
-          python ml/train_model.py
+          python ml/backtest.py
 
-      - name: 学習結果を確認
-        id: result
+      - name: バックテスト結果を確認
         run: |
-          AUC=$(cat data/ml/model_info.json | python3 -c "
-          import sys, json
-          d = json.load(sys.stdin)
-          print(d['evaluation']['auc'])
-          ")
-          PREC=$(cat data/ml/model_info.json | python3 -c "
-          import sys, json
-          d = json.load(sys.stdin)
-          print(d['evaluation']['precision'])
-          ")
-          JUDGE=$(cat data/ml/model_info.json | python3 -c "
-          import sys, json
-          d = json.load(sys.stdin)
-          print(d['evaluation']['判定'])
-          ")
-          echo "auc=${AUC}" >> $GITHUB_OUTPUT
-          echo "precision=${PREC}" >> $GITHUB_OUTPUT
-          echo "judge=${JUDGE}" >> $GITHUB_OUTPUT
-          echo "AUC: ${AUC} | Precision: ${PREC} | ${JUDGE}"
+          python3 -c "
+          import json
+          with open('data/ml/backtest_result.json', encoding='utf-8') as f:
+              d = json.load(f)
+          r = d['result']
+          print(f'年率リターン: {float(r[\"annual_return\"]):.1%}')
+          print(f'最大DD:       {float(r[\"max_drawdown\"]):.1%}')
+          print(f'シャープ:     {r[\"sharpe_ratio\"]}')
+          print(f'勝率:         {float(r[\"win_rate\"]):.1%}')
+          print(f'判定:         {r[\"判定\"]}')
+          "
 
-      - name: モデルをArtifactに保存
+      - name: 結果をArtifactに保存
         uses: actions/upload-artifact@v4
         with:
-          name: ml-model-${{ github.run_number }}
+          name: backtest-result-${{ github.run_number }}
           path: |
-            data/ml/model.pkl
-            data/ml/model_info.json
+            data/ml/backtest_result.json
+            data/ml/backtest_equity.csv
           retention-days: 90
 
-      - name: model_info.json をリポジトリにコミット
+      - name: backtest_result.json をリポジトリにコミット
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "🤖 ML PHASE2 モデル学習完了 - Run#${{ github.run_number }}"
-          file_pattern: data/ml/model_info.json
+          commit_message: "🤖 ML PHASE3 バックテスト完了 - Run#${{ github.run_number }}"
+          file_pattern: data/ml/backtest_result.json
           commit_user_name: Stock AI Bot
           commit_user_email: bot@github.actions
 
-      - name: Discord に学習結果を通知
+      - name: Discord にバックテスト結果を通知
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          python ml/notify_phase2.py ${{ github.run_number }}
+          python ml/notify_phase3.py ${{ github.run_number }}
