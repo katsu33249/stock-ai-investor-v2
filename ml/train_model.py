@@ -68,6 +68,8 @@ FEATURE_COLS = [
     "operating_margin", "revenue_growth",
     "equity_ratio", "debt_to_equity",
     "dividend_yield", "credit_score",
+    # 決算サプライズ
+    "earnings_surprise", "revenue_surprise", "days_since_earnings",
 ]
 
 
