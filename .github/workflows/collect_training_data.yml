@@ -10,7 +10,7 @@ jobs:
   collect-training-data:
     name: 学習データ収集（東証プライム全銘柄 × 10年）
     runs-on: ubuntu-latest
-    timeout-minutes: 330  # 最大5.5時間（Actions上限6時間）
+    timeout-minutes: 350  # 最大5.8時間（800銘柄対応）
 
     steps:
       - name: 📥 リポジトリ取得
@@ -26,6 +26,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install pyarrow
 
       - name: 📁 出力ディレクトリ作成
         run: |
