@@ -69,7 +69,14 @@ logger.add("data/logs/backtest_{time:YYYYMMDD}.log", rotation="1 day", level="DE
 def load_data_and_model():
     logger.info("データ・モデル読み込み中...")
 
-    df = pd.read_csv(DATA_PATH, parse_dates=["date"])
+    # Parquet優先、なければCSV
+    parquet_path = DATA_PATH.parent / "training_data.parquet"
+    if parquet_path.exists():
+        df = pd.read_parquet(parquet_path)
+        df["date"] = pd.to_datetime(df["date"])
+        logger.info(f"Parquet読み込み: {parquet_path}")
+    else:
+        df = pd.read_csv(DATA_PATH, parse_dates=["date"])
     df = df.sort_values("date").reset_index(drop=True)
 
     # model.pkl をサブフォルダから探す
@@ -94,26 +101,16 @@ def load_data_and_model():
 # 2. 全データに予測確率を付与
 # ============================================================
 def predict_all(df: pd.DataFrame, saved: dict, feat_cols: list) -> pd.DataFrame:
-    """アンサンブル or 単体モデル対応"""
+    """LightGBM単体で予測（後方互換あり）"""
     logger.info("予測確率を計算中...")
-    X = df[feat_cols].replace([np.inf, -np.inf], np.nan).values
+    X  = df[feat_cols].replace([np.inf, -np.inf], np.nan).values
     df = df.copy()
-
-    if "models" in saved:
-        # アンサンブル
-        models = saved["models"]
-        preds  = []
-        if "lgb" in models:
-            preds.append(models["lgb"].predict(X))
-        if "xgb" in models:
-            import xgboost as xgb
-            dmat = xgb.DMatrix(X, feature_names=feat_cols)
-            preds.append(models["xgb"].predict(dmat))
-        if "rf" in models:
-            preds.append(models["rf"].predict_proba(np.nan_to_num(X))[:, 1])
-        df["pred_prob"] = np.mean(preds, axis=0) if preds else np.zeros(len(X))
-    else:
+    if "model" in saved:
         df["pred_prob"] = saved["model"].predict(X)
+    elif "models" in saved and "lgb" in saved["models"]:
+        df["pred_prob"] = saved["models"]["lgb"].predict(X)
+    else:
+        df["pred_prob"] = np.zeros(len(X))
     return df
 
 
