@@ -323,16 +323,14 @@ def calc_features(df: pd.DataFrame) -> pd.DataFrame:
 # 6. 目的変数（TOPIXアルファ）
 # ============================================================
 def calc_target(df: pd.DataFrame, topix_df: pd.DataFrame) -> pd.DataFrame:
-    future_close  = df["close"].shift(-TARGET_DAYS)
-    stock_return  = (future_close - df["close"]) / df["close"]
+    future_close = df["close"].shift(-TARGET_DAYS)
+    stock_return = (future_close - df["close"]) / df["close"]
 
-    merged = df.merge(
-        topix_df[["date","topix_future_5d"]],
-        on="date", how="left"
-    )
-    alpha = stock_return - merged["topix_future_5d"].fillna(0)
+    # topix_future_5d はmerge_asof済みで既にdf内にある
+    topix_future = df["topix_future_5d"].fillna(0) if "topix_future_5d" in df.columns else 0.0
+    alpha = stock_return - topix_future
 
-    df = merged.copy()
+    df = df.copy()
     df["future_return"] = stock_return
     df["alpha_return"]  = alpha
     df["target"]        = (alpha >= TARGET_ALPHA).astype(int)
