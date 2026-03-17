@@ -128,6 +128,13 @@ def run_backtest(df: pd.DataFrame, threshold: float) -> dict:
     # 日付リスト
     dates = sorted(bt["date"].unique())
 
+    # TOPIX HOLDルール: 20日リターンが-5%以下 = 下落トレンド → 最大3銘柄に制限
+    topix_trend = bt[["date","topix_return_20d"]].drop_duplicates("date").sort_values("date")
+    topix_map   = dict(zip(
+        topix_trend["date"],
+        topix_trend["topix_return_20d"].fillna(0) > -0.05
+    ))
+
     capital   = float(INITIAL_CAPITAL)
     equity    = []      # (date, total_assets)
     trades    = []      # 個別取引記録
