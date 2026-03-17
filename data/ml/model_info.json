@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-03-17T14:03:48.043868",
+  "created_at": "2026-03-17T14:42:47.491278",
   "total_records": 179484,
   "feature_cols": [
     "return_1d",
@@ -38,21 +38,24 @@
     "equity_ratio",
     "debt_to_equity",
     "dividend_yield",
-    "credit_score"
+    "credit_score",
+    "earnings_surprise",
+    "revenue_surprise",
+    "days_since_earnings"
   ],
   "threshold": 0.35,
   "ensemble": [
     "lgb"
   ],
   "lgb_params": {
-    "num_leaves": 105,
-    "learning_rate": 0.013560767359575046,
-    "feature_fraction": 0.7434784080384409,
-    "bagging_fraction": 0.7286320100262899,
-    "bagging_freq": 8,
-    "min_child_samples": 68,
-    "lambda_l1": 0.00043288920447336754,
-    "lambda_l2": 0.0009983619779071432,
+    "num_leaves": 43,
+    "learning_rate": 0.03156690263285815,
+    "feature_fraction": 0.6322636260657067,
+    "bagging_fraction": 0.5604450897140503,
+    "bagging_freq": 3,
+    "min_child_samples": 86,
+    "lambda_l1": 0.2158022998073797,
+    "lambda_l2": 0.0005331487698028163,
     "objective": "binary",
     "metric": "auc",
     "boosting_type": "gbdt",
@@ -60,76 +63,76 @@
     "random_state": 42
   },
   "cv_results": {
-    "auc_mean": 0.5875,
-    "auc_std": 0.0117,
-    "precision_mean": 0.3906,
-    "recall_mean": 0.0941,
-    "f1_mean": 0.132,
+    "auc_mean": 0.5904,
+    "auc_std": 0.0106,
+    "precision_mean": 0.3881,
+    "recall_mean": 0.1641,
+    "f1_mean": 0.2161,
     "folds": [
       {
         "fold": 1,
-        "auc": 0.5808,
-        "precision": 0.3928,
-        "recall": 0.0577,
-        "f1": 0.1006,
+        "auc": 0.5871,
+        "precision": 0.3887,
+        "recall": 0.1319,
+        "f1": 0.197,
         "val_from": "2017-05-08",
         "val_to": "2018-05-24"
       },
       {
         "fold": 2,
-        "auc": 0.5857,
-        "precision": 0.4258,
-        "recall": 0.0742,
-        "f1": 0.1264,
+        "auc": 0.5887,
+        "precision": 0.3909,
+        "recall": 0.1765,
+        "f1": 0.2432,
         "val_from": "2018-05-24",
         "val_to": "2019-05-22"
       },
       {
         "fold": 3,
-        "auc": 0.6104,
-        "precision": 0.3817,
-        "recall": 0.2763,
-        "f1": 0.3205,
+        "auc": 0.6109,
+        "precision": 0.3829,
+        "recall": 0.2747,
+        "f1": 0.3199,
         "val_from": "2019-05-22",
         "val_to": "2020-04-21"
       },
       {
         "fold": 4,
-        "auc": 0.5813,
-        "precision": 0.3863,
-        "recall": 0.0149,
-        "f1": 0.0288,
+        "auc": 0.5839,
+        "precision": 0.4189,
+        "recall": 0.032,
+        "f1": 0.0594,
         "val_from": "2020-04-21",
         "val_to": "2021-03-05"
       },
       {
         "fold": 5,
-        "auc": 0.5792,
-        "precision": 0.3664,
-        "recall": 0.0472,
-        "f1": 0.0836,
+        "auc": 0.5811,
+        "precision": 0.359,
+        "recall": 0.2052,
+        "f1": 0.2612,
         "val_from": "2021-03-05",
         "val_to": "2021-12-30"
       }
     ]
   },
   "feature_importance_top10": {
-    "margin_ratio": 54979.096653461456,
-    "from_low": 52258.3244805336,
-    "return_60d": 46439.54714822769,
-    "topix_return_20d": 45838.37133836746,
-    "from_high": 44086.67329454422,
-    "margin_ratio_chg": 42523.13873910904,
-    "roe": 39305.09086227417,
-    "ma75_dev": 39170.26489543915,
-    "ichi_kijun_dev": 34760.09501743317,
-    "rci26": 32842.03669857979
+    "margin_ratio": 18267.818838596344,
+    "from_low": 17720.53202009201,
+    "return_60d": 16012.091063976288,
+    "topix_return_20d": 15810.702154636383,
+    "margin_ratio_chg": 14600.51956653595,
+    "from_high": 14311.806477308273,
+    "roe": 13456.887577533722,
+    "ma75_dev": 13452.314125061035,
+    "ichi_kijun_dev": 12191.361075878143,
+    "rci26": 11641.101776599884
   },
   "evaluation": {
-    "auc": 0.5875,
-    "precision": 0.3906,
-    "recall": 0.0941,
-    "f1": 0.132,
+    "auc": 0.5904,
+    "precision": 0.3881,
+    "recall": 0.1641,
+    "f1": 0.2161,
     "判定": "✅ 有効"
   }
 }
