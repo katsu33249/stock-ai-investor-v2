@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-03-17T23:44:55.954483",
+  "created_at": "2026-03-18T06:31:25.680818",
   "settings": {
     "initial_capital": 1000000,
     "max_positions": 10,
@@ -10,177 +10,177 @@
   "result": {
     "period": "2022-01-04 〜 2026-03-17",
     "initial_capital": 1000000,
-    "final_capital": 1035906.0,
-    "total_return": 0.0359,
-    "annual_return": 0.0084,
-    "max_drawdown": -0.0386,
-    "sharpe_ratio": 0.329,
-    "win_rate": 0.5294,
-    "profit_factor": 1.476,
-    "total_trades": 34,
-    "avg_return_per_trade": 0.0182,
-    "判定": "❌ 要改善（モデル再学習推奨）"
+    "final_capital": 1499924.0,
+    "total_return": 0.4999,
+    "annual_return": 0.1013,
+    "max_drawdown": -0.0957,
+    "sharpe_ratio": 1.1,
+    "win_rate": 0.5582,
+    "profit_factor": 1.711,
+    "total_trades": 292,
+    "avg_return_per_trade": 0.0245,
+    "判定": "⚠️ 合格（パラメータ調整推奨）"
   },
   "sample_trades": [
     {
-      "entry_date": "2022-02-22",
-      "exit_date": "2022-02-28",
+      "entry_date": "2022-01-05",
+      "exit_date": "2022-01-11",
+      "ticker": "6920.T",
+      "ret": -0.0762,
+      "pnl": -6252.95,
+      "win": 0
+    },
+    {
+      "entry_date": "2022-01-06",
+      "exit_date": "2022-01-11",
+      "ticker": "3923.T",
+      "ret": -0.0625,
+      "pnl": -4748.95,
+      "win": 0
+    },
+    {
+      "entry_date": "2022-01-12",
+      "exit_date": "2022-01-17",
+      "ticker": "3923.T",
+      "ret": -0.0871,
+      "pnl": -7051.14,
+      "win": 0
+    },
+    {
+      "entry_date": "2022-01-18",
+      "exit_date": "2022-01-24",
+      "ticker": "3923.T",
+      "ret": -0.0415,
+      "pnl": -3413.3,
+      "win": 0
+    },
+    {
+      "entry_date": "2022-01-20",
+      "exit_date": "2022-01-25",
       "ticker": "1407.T",
-      "ret": 0.1709,
-      "pnl": 13508.35,
-      "win": 1
+      "ret": -0.0675,
+      "pnl": -6282.88,
+      "win": 0
     },
     {
-      "entry_date": "2022-03-08",
-      "exit_date": "2022-03-14",
+      "entry_date": "2022-01-25",
+      "exit_date": "2022-01-31",
       "ticker": "3923.T",
-      "ret": -0.1812,
-      "pnl": -14850.69,
+      "ret": -0.0229,
+      "pnl": -1934.31,
       "win": 0
     },
     {
-      "entry_date": "2022-03-14",
-      "exit_date": "2022-03-22",
+      "entry_date": "2022-01-27",
+      "exit_date": "2022-02-01",
+      "ticker": "6920.T",
+      "ret": -0.0691,
+      "pnl": -5088.75,
+      "win": 0
+    },
+    {
+      "entry_date": "2022-01-27",
+      "exit_date": "2022-02-01",
+      "ticker": "5074.T",
+      "ret": 0.078,
+      "pnl": 5002.36,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-27",
+      "exit_date": "2022-02-01",
+      "ticker": "4385.T",
+      "ret": 0.0449,
+      "pnl": 2597.56,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-27",
+      "exit_date": "2022-02-01",
+      "ticker": "3769.T",
+      "ret": 0.0645,
+      "pnl": 3481.56,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-27",
+      "exit_date": "2022-02-01",
+      "ticker": "3697.T",
+      "ret": 0.2107,
+      "pnl": 10699.62,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-27",
+      "exit_date": "2022-02-01",
+      "ticker": "4980.T",
+      "ret": 0.1723,
+      "pnl": 8032.45,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-31",
+      "exit_date": "2022-02-07",
       "ticker": "3923.T",
-      "ret": 0.0761,
-      "pnl": 5920.24,
-      "win": 1
+      "ret": -0.0344,
+      "pnl": -2247.9,
+      "win": 0
     },
     {
-      "entry_date": "2022-03-14",
-      "exit_date": "2022-03-22",
+      "entry_date": "2022-02-03",
+      "exit_date": "2022-02-08",
       "ticker": "6920.T",
-      "ret": 0.1276,
-      "pnl": 9228.16,
+      "ret": 0.0068,
+      "pnl": 360.56,
       "win": 1
     },
     {
-      "entry_date": "2022-03-14",
-      "exit_date": "2022-03-22",
-      "ticker": "4483.T",
-      "ret": 0.1298,
-      "pnl": 8643.15,
-      "win": 1
-    },
-    {
-      "entry_date": "2022-04-07",
-      "exit_date": "2022-04-12",
+      "entry_date": "2022-02-14",
+      "exit_date": "2022-02-21",
       "ticker": "6920.T",
-      "ret": 0.021,
-      "pnl": 1554.25,
-      "win": 1
+      "ret": -0.0395,
+      "pnl": -3295.17,
+      "win": 0
     },
     {
-      "entry_date": "2022-04-11",
-      "exit_date": "2022-04-18",
+      "entry_date": "2022-02-14",
+      "exit_date": "2022-02-21",
       "ticker": "3923.T",
-      "ret": -0.0124,
-      "pnl": -1086.15,
+      "ret": -0.124,
+      "pnl": -9211.49,
       "win": 0
     },
     {
-      "entry_date": "2022-04-12",
-      "exit_date": "2022-04-18",
-      "ticker": "6920.T",
-      "ret": 0.0935,
-      "pnl": 6945.07,
+      "entry_date": "2022-02-15",
+      "exit_date": "2022-02-21",
+      "ticker": "3697.T",
+      "ret": 0.0084,
+      "pnl": 428.94,
       "win": 1
     },
     {
-      "entry_date": "2022-04-18",
-      "exit_date": "2022-04-25",
+      "entry_date": "2022-02-21",
+      "exit_date": "2022-02-28",
       "ticker": "3923.T",
-      "ret": -0.051,
-      "pnl": -4363.26,
-      "win": 0
-    },
-    {
-      "entry_date": "2024-05-24",
-      "exit_date": "2024-05-29",
-      "ticker": "3697.T",
-      "ret": -0.0974,
-      "pnl": -8155.46,
-      "win": 0
-    },
-    {
-      "entry_date": "2024-05-31",
-      "exit_date": "2024-06-05",
-      "ticker": "3697.T",
-      "ret": -0.0274,
-      "pnl": -2394.87,
-      "win": 0
-    },
-    {
-      "entry_date": "2024-06-05",
-      "exit_date": "2024-06-10",
-      "ticker": "3697.T",
-      "ret": -0.0854,
-      "pnl": -7099.74,
-      "win": 0
-    },
-    {
-      "entry_date": "2024-08-02",
-      "exit_date": "2024-08-07",
-      "ticker": "3697.T",
-      "ret": -0.0074,
-      "pnl": -947.79,
-      "win": 0
-    },
-    {
-      "entry_date": "2024-08-02",
-      "exit_date": "2024-08-07",
-      "ticker": "6227.T",
-      "ret": -0.0718,
-      "pnl": -6697.53,
-      "win": 0
-    },
-    {
-      "entry_date": "2024-08-02",
-      "exit_date": "2024-08-07",
-      "ticker": "6920.T",
       "ret": 0.1912,
-      "pnl": 15441.43,
+      "pnl": 14846.34,
       "win": 1
     },
     {
-      "entry_date": "2024-08-02",
-      "exit_date": "2024-08-07",
-      "ticker": "7735.T",
-      "ret": -0.0687,
-      "pnl": -4154.81,
+      "entry_date": "2022-02-21",
+      "exit_date": "2022-02-28",
+      "ticker": "6920.T",
+      "ret": -0.009,
+      "pnl": -792.47,
       "win": 0
     },
     {
-      "entry_date": "2024-08-02",
-      "exit_date": "2024-08-07",
-      "ticker": "7003.T",
-      "ret": -0.0131,
-      "pnl": -817.81,
-      "win": 0
-    },
-    {
-      "entry_date": "2024-08-02",
-      "exit_date": "2024-08-07",
-      "ticker": "6315.T",
-      "ret": -0.1273,
-      "pnl": -6432.44,
-      "win": 0
-    },
-    {
-      "entry_date": "2024-08-02",
-      "exit_date": "2024-08-07",
-      "ticker": "3498.T",
-      "ret": 0.0868,
-      "pnl": 3879.32,
+      "entry_date": "2022-02-21",
+      "exit_date": "2022-02-28",
+      "ticker": "3697.T",
+      "ret": 0.2163,
+      "pnl": 14238.76,
       "win": 1
-    },
-    {
-      "entry_date": "2024-08-02",
-      "exit_date": "2024-08-07",
-      "ticker": "3778.T",
-      "ret": -0.123,
-      "pnl": -5263.99,
-      "win": 0
     }
   ]
 }
