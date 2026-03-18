@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-03-18T13:23:52.027387",
+  "created_at": "2026-03-18T15:02:17.439704",
   "tickers": [
     "1306.T",
     "1320.T",
@@ -65,7 +65,6 @@
     "2501.T",
     "2502.T",
     "2503.T",
-    "2579.T",
     "2587.T",
     "2607.T",
     "2644.T",
@@ -261,7 +260,6 @@
     "6208.T",
     "6227.T",
     "6232.T",
-    "6235.T",
     "6268.T",
     "6269.T",
     "6273.T",
@@ -344,13 +342,13 @@
     "6961.T",
     "6963.T",
     "6965.T",
-    "6966.T",
     "6971.T",
     "6976.T",
     "6981.T",
     "6988.T",
     "6996.T",
     "7003.T",
+    "7004.T",
     "7011.T",
     "7012.T",
     "7013.T",
@@ -465,6 +463,8 @@
     "9101.T",
     "9104.T",
     "9107.T",
+    "9110.T",
+    "9119.T",
     "9130.T",
     "9142.T",
     "9143.T",
@@ -502,8 +502,8 @@
     "9983.T",
     "9984.T"
   ],
-  "total_records": 1132120,
-  "positive_rate": 0.25403755785605764,
+  "total_records": 1132551,
+  "positive_rate": 0.25379431036659716,
   "feature_cols": [
     "return_1d",
     "return_5d",
@@ -544,10 +544,12 @@
     "credit_score",
     "earnings_surprise",
     "revenue_surprise",
-    "days_since_earnings"
+    "days_since_earnings",
+    "eps_growth",
+    "operating_income_growth"
   ],
   "target_type": "topix_alpha",
   "target_alpha": 0.02,
   "parquet_size_mb": 97.9,
-  "csv_size_mb": 339.0
+  "csv_size_mb": 341.3
 }
