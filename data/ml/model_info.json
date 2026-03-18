@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-03-18T13:34:21.242898",
-  "total_records": 634034,
+  "created_at": "2026-03-18T15:07:32.287466",
+  "total_records": 634465,
   "feature_cols": [
     "return_1d",
     "return_5d",
@@ -41,21 +41,23 @@
     "credit_score",
     "earnings_surprise",
     "revenue_surprise",
-    "days_since_earnings"
+    "days_since_earnings",
+    "eps_growth",
+    "operating_income_growth"
   ],
   "threshold": 0.35,
   "ensemble": [
     "lgb"
   ],
   "lgb_params": {
-    "num_leaves": 20,
-    "learning_rate": 0.01192596733755229,
-    "feature_fraction": 0.7901198004843792,
-    "bagging_fraction": 0.9937469232338285,
-    "bagging_freq": 7,
-    "min_child_samples": 38,
-    "lambda_l1": 0.0008950443298071123,
-    "lambda_l2": 0.004737622151573969,
+    "num_leaves": 21,
+    "learning_rate": 0.013456778888739227,
+    "feature_fraction": 0.7746928960579932,
+    "bagging_fraction": 0.5428390778024319,
+    "bagging_freq": 8,
+    "min_child_samples": 71,
+    "lambda_l1": 0.04659253886420527,
+    "lambda_l2": 0.0009000659491634302,
     "objective": "binary",
     "metric": "auc",
     "boosting_type": "gbdt",
@@ -63,76 +65,76 @@
     "random_state": 42
   },
   "cv_results": {
-    "auc_mean": 0.5774,
+    "auc_mean": 0.5775,
     "auc_std": 0.0099,
-    "precision_mean": 0.3729,
-    "recall_mean": 0.087,
-    "f1_mean": 0.1372,
+    "precision_mean": 0.3669,
+    "recall_mean": 0.0586,
+    "f1_mean": 0.0996,
     "folds": [
       {
         "fold": 1,
-        "auc": 0.5729,
-        "precision": 0.3466,
-        "recall": 0.0693,
-        "f1": 0.1155,
+        "auc": 0.5721,
+        "precision": 0.3218,
+        "recall": 0.0221,
+        "f1": 0.0413,
         "val_from": "2017-03-17",
-        "val_to": "2018-03-09"
+        "val_to": "2018-03-08"
       },
       {
         "fold": 2,
-        "auc": 0.5696,
-        "precision": 0.3791,
-        "recall": 0.0771,
-        "f1": 0.1282,
-        "val_from": "2018-03-09",
-        "val_to": "2019-02-27"
+        "auc": 0.5709,
+        "precision": 0.3883,
+        "recall": 0.0881,
+        "f1": 0.1436,
+        "val_from": "2018-03-08",
+        "val_to": "2019-02-26"
       },
       {
         "fold": 3,
-        "auc": 0.5935,
-        "precision": 0.3883,
-        "recall": 0.05,
-        "f1": 0.0886,
-        "val_from": "2019-02-27",
+        "auc": 0.5941,
+        "precision": 0.3912,
+        "recall": 0.0624,
+        "f1": 0.1077,
+        "val_from": "2019-02-26",
         "val_to": "2020-02-17"
       },
       {
         "fold": 4,
-        "auc": 0.5842,
-        "precision": 0.3871,
-        "recall": 0.1657,
-        "f1": 0.232,
+        "auc": 0.5834,
+        "precision": 0.3774,
+        "recall": 0.0486,
+        "f1": 0.0861,
         "val_from": "2020-02-17",
         "val_to": "2021-01-27"
       },
       {
         "fold": 5,
         "auc": 0.567,
-        "precision": 0.3635,
-        "recall": 0.073,
-        "f1": 0.1215,
+        "precision": 0.3556,
+        "recall": 0.0717,
+        "f1": 0.1193,
         "val_from": "2021-01-27",
         "val_to": "2021-12-30"
       }
     ]
   },
   "feature_importance_top10": {
-    "from_low": 134460.90373420715,
-    "return_60d": 100467.94921875,
-    "from_high": 86180.27025985718,
-    "topix_return_20d": 62308.62964439392,
-    "return_1d": 46126.17688751221,
-    "roe": 43085.8374671936,
-    "margin_ratio": 35207.03837966919,
-    "return_20d": 35111.9123506546,
-    "topix_return_5d": 32833.06641769409,
-    "ma75_dev": 32533.024390220642
+    "from_low": 68567.01972484589,
+    "return_60d": 54037.71060848236,
+    "from_high": 46598.65493297577,
+    "topix_return_20d": 38325.939772605896,
+    "return_1d": 24376.8888835907,
+    "topix_return_5d": 22214.119201660156,
+    "roe": 22142.19764328003,
+    "ma75_dev": 20691.65019416809,
+    "margin_ratio": 20468.990502357483,
+    "return_20d": 18354.396738052368
   },
   "evaluation": {
-    "auc": 0.5774,
-    "precision": 0.3729,
-    "recall": 0.087,
-    "f1": 0.1372,
+    "auc": 0.5775,
+    "precision": 0.3669,
+    "recall": 0.0586,
+    "f1": 0.0996,
     "判定": "✅ 有効"
   }
 }
