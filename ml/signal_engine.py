@@ -69,7 +69,10 @@ def load_price_cache() -> dict:
         return {}
     with open(PRICE_CACHE_PATH, "rb") as f:
         cache = pickle.load(f)
-    elapsed = (datetime.now() - cache.get("timestamp", datetime.min)).total_seconds() / 3600
+    try:
+        elapsed = (datetime.now() - cache.get("timestamp", datetime.min)).total_seconds() / 3600
+    except Exception:
+        elapsed = 9999
     if elapsed > 18:
         logger.warning(f"価格キャッシュ期限切れ({elapsed:.1f}h)")
         return {}
@@ -283,11 +286,15 @@ class SignalEngine:
 
     # ② セクター強度
     def sector_scores(self, price_dict: dict, sector_map: dict) -> dict:
-        from src.screener.sector_analyzer import calc_sector_scores
-        weights = self.config.get("sector", {}).get("metrics", {
-            "return_5d": 0.5, "vol_ratio": 0.3, "policy_hit": 0.2
-        })
-        return calc_sector_scores(price_dict, sector_map, weights)
+        try:
+            import sys; sys.path.insert(0, str(BASE_DIR))
+            from src.screener.sector_analyzer import calc_sector_scores
+            weights = self.config.get("sector", {}).get("metrics", {
+                "return_5d": 0.5, "vol_ratio": 0.3, "policy_hit": 0.2
+            })
+            return calc_sector_scores(price_dict, sector_map, weights)
+        except ImportError:
+            return {}
 
     # ③ 総合スコア計算
     def combine_score(self, row: dict, sector_scores: dict) -> float:
@@ -758,12 +765,16 @@ def main():
     market = engine.market_filter(topix, nikkei_r20, ad_ratio)
 
     # セクター分析
-    if POLICY_YAML_PATH.exists():
+    sector_scores = {}
+    try:
+        import sys; sys.path.insert(0, str(BASE_DIR))
         from src.screener.sector_analyzer import load_sector_tickers, calc_sector_scores
-        sector_map    = load_sector_tickers()
-        sector_scores = calc_sector_scores(price_dict, sector_map)
-    else:
-        sector_scores = {}
+        if POLICY_YAML_PATH.exists():
+            sector_map    = load_sector_tickers()
+            sector_scores = calc_sector_scores(price_dict, sector_map)
+            logger.info(f"セクタースコア: {len(sector_scores)}セクター")
+    except ImportError:
+        logger.warning("sector_analyzer未配置 → セクタースコアなし")
 
     # MLモデル
     model, feat_cols, threshold = load_ml_model()
