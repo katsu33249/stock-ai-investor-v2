@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-03-18T14:01:01.831894",
+  "created_at": "2026-03-18T15:11:54.141649",
   "settings": {
     "initial_capital": 1000000,
     "max_positions": 10,
@@ -10,25 +10,25 @@
   "result": {
     "period": "2022-01-04 〜 2026-03-18",
     "initial_capital": 1000000,
-    "final_capital": 1856102.0,
-    "total_return": 0.8561,
-    "annual_return": 0.1585,
-    "max_drawdown": -0.1353,
-    "sharpe_ratio": 1.225,
-    "win_rate": 0.5061,
-    "profit_factor": 1.588,
-    "total_trades": 575,
-    "avg_return_per_trade": 0.0207,
+    "final_capital": 1981774.0,
+    "total_return": 0.9818,
+    "annual_return": 0.1767,
+    "max_drawdown": -0.1993,
+    "sharpe_ratio": 1.194,
+    "win_rate": 0.5035,
+    "profit_factor": 1.407,
+    "total_trades": 866,
+    "avg_return_per_trade": 0.0161,
     "判定": "✅ 優秀（PHASE 4へ進む）"
   },
   "sample_trades": [
     {
       "entry_date": "2022-01-04",
       "exit_date": "2022-01-11",
-      "ticker": "4588.T",
-      "ret": 0.0316,
-      "pnl": 2367.88,
-      "win": 1
+      "ticker": "9519.T",
+      "ret": -0.1572,
+      "pnl": -12734.85,
+      "win": 0
     },
     {
       "entry_date": "2022-01-05",
@@ -39,11 +39,27 @@
       "win": 0
     },
     {
+      "entry_date": "2022-01-05",
+      "exit_date": "2022-01-11",
+      "ticker": "4480.T",
+      "ret": 0.0414,
+      "pnl": 2666.24,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-05",
+      "exit_date": "2022-01-11",
+      "ticker": "4431.T",
+      "ret": -0.069,
+      "pnl": -4422.95,
+      "win": 0
+    },
+    {
       "entry_date": "2022-01-11",
       "exit_date": "2022-01-17",
       "ticker": "4480.T",
       "ret": 0.0311,
-      "pnl": 2294.49,
+      "pnl": 2255.27,
       "win": 1
     },
     {
@@ -51,7 +67,7 @@
       "exit_date": "2022-01-17",
       "ticker": "3923.T",
       "ret": 0.0232,
-      "pnl": 1542.35,
+      "pnl": 1515.99,
       "win": 1
     },
     {
@@ -59,55 +75,87 @@
       "exit_date": "2022-01-17",
       "ticker": "6532.T",
       "ret": 0.0831,
-      "pnl": 5417.73,
+      "pnl": 5325.12,
       "win": 1
     },
     {
-      "entry_date": "2022-01-14",
-      "exit_date": "2022-01-19",
-      "ticker": "4449.T",
-      "ret": -0.1228,
-      "pnl": -7669.97,
+      "entry_date": "2022-01-12",
+      "exit_date": "2022-01-17",
+      "ticker": "4431.T",
+      "ret": -0.1732,
+      "pnl": -10579.79,
       "win": 0
     },
     {
-      "entry_date": "2022-01-18",
+      "entry_date": "2022-01-17",
       "exit_date": "2022-01-24",
       "ticker": "3923.T",
-      "ret": -0.0415,
-      "pnl": -3247.13,
-      "win": 0
+      "ret": 0.1014,
+      "pnl": 7696.09,
+      "win": 1
     },
     {
-      "entry_date": "2022-01-21",
-      "exit_date": "2022-01-26",
+      "entry_date": "2022-01-17",
+      "exit_date": "2022-01-24",
       "ticker": "4480.T",
-      "ret": -0.1492,
-      "pnl": -11045.28,
+      "ret": -0.0466,
+      "pnl": -3465.25,
       "win": 0
     },
     {
-      "entry_date": "2022-01-21",
-      "exit_date": "2022-01-26",
+      "entry_date": "2022-01-17",
+      "exit_date": "2022-01-24",
       "ticker": "4431.T",
-      "ret": -0.0496,
-      "pnl": -3470.02,
+      "ret": -0.0144,
+      "pnl": -1076.27,
       "win": 0
     },
     {
-      "entry_date": "2022-01-25",
+      "entry_date": "2022-01-20",
+      "exit_date": "2022-01-25",
+      "ticker": "1407.T",
+      "ret": -0.0675,
+      "pnl": -4193.79,
+      "win": 0
+    },
+    {
+      "entry_date": "2022-01-24",
+      "exit_date": "2022-01-31",
+      "ticker": "4431.T",
+      "ret": -0.0101,
+      "pnl": -883.83,
+      "win": 0
+    },
+    {
+      "entry_date": "2022-01-24",
       "exit_date": "2022-01-31",
       "ticker": "3923.T",
-      "ret": -0.0229,
-      "pnl": -1679.95,
+      "ret": -0.1366,
+      "pnl": -9288.37,
       "win": 0
     },
     {
-      "entry_date": "2022-01-25",
+      "entry_date": "2022-01-26",
       "exit_date": "2022-01-31",
-      "ticker": "3498.T",
-      "ret": 0.0411,
-      "pnl": 2431.13,
+      "ticker": "4443.T",
+      "ret": -0.0443,
+      "pnl": -3064.78,
+      "win": 0
+    },
+    {
+      "entry_date": "2022-01-26",
+      "exit_date": "2022-01-31",
+      "ticker": "4480.T",
+      "ret": 0.1053,
+      "pnl": 6290.56,
+      "win": 1
+    },
+    {
+      "entry_date": "2022-01-26",
+      "exit_date": "2022-01-31",
+      "ticker": "4384.T",
+      "ret": 0.0634,
+      "pnl": 3438.91,
       "win": 1
     },
     {
@@ -115,7 +163,7 @@
       "exit_date": "2022-02-01",
       "ticker": "4483.T",
       "ret": 0.0437,
-      "pnl": 2806.28,
+      "pnl": 2150.35,
       "win": 1
     },
     {
@@ -123,63 +171,15 @@
       "exit_date": "2022-02-01",
       "ticker": "2980.T",
       "ret": 0.0348,
-      "pnl": 2031.6,
+      "pnl": 1556.74,
       "win": 1
     },
     {
       "entry_date": "2022-01-27",
       "exit_date": "2022-02-01",
-      "ticker": "4431.T",
-      "ret": -0.0141,
-      "pnl": -913.54,
-      "win": 0
-    },
-    {
-      "entry_date": "2022-01-27",
-      "exit_date": "2022-02-01",
-      "ticker": "7157.T",
-      "ret": 0.0317,
-      "pnl": 1554.76,
-      "win": 1
-    },
-    {
-      "entry_date": "2022-01-27",
-      "exit_date": "2022-02-01",
-      "ticker": "6521.T",
-      "ret": 0.1223,
-      "pnl": 5796.22,
-      "win": 1
-    },
-    {
-      "entry_date": "2022-01-27",
-      "exit_date": "2022-02-01",
-      "ticker": "6532.T",
-      "ret": 0.0307,
-      "pnl": 1271.4,
-      "win": 1
-    },
-    {
-      "entry_date": "2022-01-27",
-      "exit_date": "2022-02-01",
-      "ticker": "9519.T",
-      "ret": -0.0227,
-      "pnl": -1005.11,
-      "win": 0
-    },
-    {
-      "entry_date": "2022-01-28",
-      "exit_date": "2022-02-02",
-      "ticker": "4443.T",
-      "ret": 0.0603,
-      "pnl": 2187.83,
-      "win": 1
-    },
-    {
-      "entry_date": "2022-01-31",
-      "exit_date": "2022-02-07",
-      "ticker": "3923.T",
-      "ret": -0.0344,
-      "pnl": -1634.19,
+      "ticker": "2413.T",
+      "ret": -0.0159,
+      "pnl": -779.39,
       "win": 0
     }
   ]
