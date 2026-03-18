@@ -27,16 +27,31 @@ BASE_URL = "https://edinetdb.jp/v1"
 
 RANKING_METRICS = [
     ("per",              "per"),
+    ("pbr",              "pbr"),
     ("roe",              "roe"),
     ("roa",              "roa"),
     ("operating-margin", "operating_margin"),
     ("equity-ratio",     "equity_ratio"),
     ("dividend-yield",   "dividend_yield"),
     ("net-margin",       "profit_margin"),
+    ("revenue-growth",   "revenue_growth"),
+    ("eps-growth",       "eps_growth"),      # EPS成長率
+    ("operating-income-growth", "operating_income_growth"),  # 営業利益成長率
 ]
 
 
 def load_tickers() -> list:
+    # selected_tickers.json 優先（500銘柄）
+    selected_path = Path("config/selected_tickers.json")
+    if selected_path.exists():
+        with open(selected_path, encoding="utf-8") as f:
+            data = json.load(f)
+        tickers = data.get("tickers", [])
+        if tickers:
+            logger.info(f"銘柄リスト: {len(tickers)}銘柄 (selected_tickers.json)")
+            return sorted(tickers)
+
+    # フォールバック: policy_keywords.yaml
     yaml_path = Path("config/policy_keywords.yaml")
     if not yaml_path.exists():
         logger.error("config/policy_keywords.yaml が見つかりません")
@@ -47,6 +62,7 @@ def load_tickers() -> list:
     for sector_data in config.get("policy_sectors", {}).values():
         for t in sector_data.get("ticker_list", []):
             tickers.add(t)
+    logger.info(f"銘柄リスト: {len(tickers)}銘柄 (policy_keywords.yaml)")
     return sorted(tickers)
 
 
@@ -230,7 +246,6 @@ def main():
             "debt_to_equity":   None,
             "current_ratio":    None,
             "operating_cf":     None,
-            "pbr":              None,
         }
         for _, metric_key in RANKING_METRICS:
             data[metric_key] = rankings.get(metric_key, {}).get(sec_code)
@@ -240,11 +255,14 @@ def main():
 
         per = data.get("per")
         roe = data.get("roe")
+        eps_g = data.get("eps_growth")
+        rev_g = data.get("revenue_growth")
         logger.info(
             f"  ✅ {ticker} "
             f"PER:{f'{per:.1f}' if per else '-'} "
             f"ROE:{f'{roe*100:.1f}%' if roe else '-'} "
-            f"credit:{data.get('credit_score') or '-'}"
+            f"EPS成長:{f'{eps_g*100:.1f}%' if eps_g else '-'} "
+            f"売上成長:{f'{rev_g*100:.1f}%' if rev_g else '-'}"
         )
 
     save_cache(cache)
