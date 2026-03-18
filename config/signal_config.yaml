@@ -1,0 +1,89 @@
+# ============================================================
+# Stock AI Investor - シグナルエンジン設定
+# ============================================================
+
+# ① 地合いフィルター
+market_filter:
+  risk_off_conditions:
+    topix_return_20d:        -0.02   # TOPIX 20日リターン ≤ -2%
+    nikkei_return_20d:       -0.02   # 日経 20日リターン ≤ -2%
+    advance_decline_ratio:    0.90   # 騰落レシオ < 90%
+  position_size:
+    normal:   1.0
+    risk_off: 0.3
+
+# ② セクター分析
+sector:
+  source: config/policy_keywords.yaml
+  metrics:
+    return_5d:  0.5
+    vol_ratio:  0.3
+    policy_hit: 0.2
+  top_n: 5
+  boost_range: [0.9, 1.2]
+
+# ③ 銘柄スクリーニング
+stock_filter:
+  source:          config/selected_tickers.json
+  min_price:       500
+  min_turnover:    300000000   # 3億円
+  vol_ratio_min:   1.0
+
+# ④ モデル設定
+models:
+  short:
+    algo:    LightGBM
+    target:  5日後TOPIXアルファ
+    weight:  0.20
+    threshold: 0.55
+    top_n:   5
+  mid:
+    algo:    XGBoost
+    target:  20日後リターン
+    weight:  0.50
+    threshold: 0.50
+    top_n:   5
+  long:
+    algo:    RandomForest
+    target:  252日後リターン
+    weight:  0.30
+    threshold: 0.50
+    top_n:   3
+    filters:
+      dividend_yield_min: 0.03   # 高配当 > 3%
+      roe_min:            0.10   # ROE > 10%
+      equity_ratio_min:   0.50   # 自己資本比率 > 50%
+      pbr_max:            1.50   # PBR < 1.5倍
+
+# ⑤ スコアリング
+scoring:
+  weights:
+    mid:   0.50
+    long:  0.30
+    short: 0.20
+  vol_boost:
+    threshold: 2.0
+    bonus:     0.05
+  margin_penalty:
+    threshold: 8.0
+    penalty:   0.10
+  top_n: 10
+
+# ⑥ アラート設定
+alerts:
+  volume_surge:
+    threshold:  3.0    # 20日平均比3倍以上
+    min_price:  500
+  earnings_alert:
+    days_ahead: 3      # 3日以内の決算
+  demo_pnl:
+    source: data/ml/demo_trades.csv
+
+# ⑦ 売買ルール（デモトレード）
+trade_rules:
+  stop_loss:    -0.08
+  take_profit:   0.20
+  hold_days:
+    short:   5
+    mid:    20
+    long:  252
