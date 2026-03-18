@@ -59,20 +59,35 @@ logger.add("data/logs/predict_{time:YYYYMMDD}.log", rotation="1 day", level="DEB
 # 1. 銘柄リスト取得
 # ============================================================
 def get_tickers() -> list[str]:
-    """policy_keywords.yaml から銘柄リストを取得"""
+    """
+    銘柄リストを取得（優先順位）：
+    1. config/selected_tickers.json（collect_training_data.py が生成）
+    2. config/policy_keywords.yaml（フォールバック）
+    """
+    # 1. selected_tickers.json（学習と予測を一致させる）
+    selected_path = Path("config/selected_tickers.json")
+    if selected_path.exists():
+        with open(selected_path, encoding="utf-8") as f:
+            data = json.load(f)
+        tickers = data.get("tickers", [])
+        if tickers:
+            tickers = [t.replace(".T", "") for t in tickers]
+            tickers = list(dict.fromkeys(tickers))
+            logger.info(f"銘柄数: {len(tickers)} (selected_tickers.json)")
+            return tickers
+
+    # 2. フォールバック: policy_keywords.yaml
     import yaml
     with open(CONFIG_PATH, encoding="utf-8") as f:
         config = yaml.safe_load(f)
-
     tickers = []
     sectors = config.get("policy_sectors", {})
-    # policy_sectors は辞書形式: {sector_name: {ticker_list: [...]}}
     for sector_name, sector_data in sectors.items():
         if isinstance(sector_data, dict):
             tickers.extend(sector_data.get("ticker_list", []))
     tickers = [t.replace(".T", "") for t in tickers]
-    tickers = list(dict.fromkeys(tickers))  # 重複除去
-    logger.info(f"銘柄数: {len(tickers)}")
+    tickers = list(dict.fromkeys(tickers))
+    logger.info(f"銘柄数: {len(tickers)} (policy_keywords.yaml)")
     return tickers
 
 
