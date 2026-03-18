@@ -70,6 +70,8 @@ FEATURE_COLS = [
     "dividend_yield", "credit_score",
     # 決算サプライズ
     "earnings_surprise", "revenue_surprise", "days_since_earnings",
+    # EPS・成長率
+    "eps_growth", "operating_income_growth",
 ]
 
 
