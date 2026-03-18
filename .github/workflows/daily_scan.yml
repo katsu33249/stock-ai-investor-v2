@@ -110,6 +110,14 @@ jobs:
             echo "MLモデル未検出 - スキップ"
           fi
 
+      - name: 🧠 統合シグナルエンジン
+        env:
+          JQUANTS_API_KEY: ${{ secrets.JQUANTS_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          pip install pyyaml --quiet
+          python ml/signal_engine.py
+
       - name: 💾 価格キャッシュをArtifactに保存
         uses: actions/upload-artifact@v4
         if: always()
