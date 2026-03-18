@@ -567,6 +567,13 @@ def main():
         return
     logger.info(f"対象銘柄数: {len(tickers)}")
 
+    # 選定銘柄リストを保存（predict.py が参照）
+    selected_path = Path("config/selected_tickers.json")
+    selected_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(selected_path, "w", encoding="utf-8") as f:
+        json.dump({"tickers": tickers, "created_at": datetime.now().isoformat()}, f, ensure_ascii=False, indent=2)
+    logger.info(f"選定銘柄リスト保存: {selected_path}")
+
     fund_cache = load_fundamental_cache()
     logger.info(f"財務キャッシュ: {len(fund_cache)}銘柄")
 
