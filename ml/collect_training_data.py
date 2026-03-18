@@ -520,15 +520,17 @@ def load_fundamental_cache() -> dict:
 def add_fundamental(df: pd.DataFrame, ticker: str, fund_cache: dict) -> pd.DataFrame:
     fund = fund_cache.get(ticker, {})
     for col, key in [
-        ("per",             "per"),
-        ("roe",             "roe"),
-        ("roa",             "roa"),
-        ("operating_margin","operating_margin"),
-        ("revenue_growth",  "revenue_growth"),
-        ("equity_ratio",    "equity_ratio"),
-        ("debt_to_equity",  "debt_to_equity"),
-        ("dividend_yield",  "dividend_yield"),
-        ("credit_score",    "credit_score"),
+        ("per",                     "per"),
+        ("roe",                     "roe"),
+        ("roa",                     "roa"),
+        ("operating_margin",        "operating_margin"),
+        ("revenue_growth",          "revenue_growth"),
+        ("equity_ratio",            "equity_ratio"),
+        ("debt_to_equity",          "debt_to_equity"),
+        ("dividend_yield",          "dividend_yield"),
+        ("credit_score",            "credit_score"),
+        ("eps_growth",              "eps_growth"),
+        ("operating_income_growth", "operating_income_growth"),
     ]:
         df[col] = fund.get(key)
 
@@ -555,6 +557,8 @@ FEATURE_COLS = [
     "equity_ratio","debt_to_equity","dividend_yield","credit_score",
     # 決算サプライズ
     "earnings_surprise","revenue_surprise","days_since_earnings",
+    # EPS・成長率
+    "eps_growth","operating_income_growth",
 ]
 
 
