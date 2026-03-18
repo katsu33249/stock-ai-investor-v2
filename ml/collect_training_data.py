@@ -51,16 +51,24 @@ def _headers() -> dict:
 # ============================================================
 # 1. 銘柄リスト取得
 # ============================================================
-# 自動選定する銘柄数
-TOP_N_TICKERS = 800
+# 自動選定条件
+MIN_PRICE        = 500       # 最低株価（円）
+MIN_TURNOVER     = 3e8       # 最低売買代金（3億円/日）
+TARGET_SECTORS   = {         # 対象セクター（33業種コード）
+    "3150", "3250", "3350",  # 情報・通信、電気機器、機械
+    "3050", "3450", "3550",  # 医薬品、精密機器、サービス業
+    "3750", "3850", "3950",  # 化学、その他製品、ガラス・土石
+    "2050",                  # 建設業（防衛関連）
+}
+MAX_TICKERS = 400            # 最大銘柄数
 
 def get_tickers() -> list:
     """
-    売買代金上位 TOP_N_TICKERS 銘柄を自動選定
-    → 直近営業日の全銘柄株価データから売買代金でランキング
+    成長・テーマ株を条件フィルターで自動選定
+    条件: 株価≥500円 × 売買代金≥3億円 × 対象セクター
     フォールバック: stock_names.json → policy_keywords.yaml
     """
-    logger.info(f"売買代金上位{TOP_N_TICKERS}銘柄を自動選定中...")
+    logger.info(f"成長・テーマ株を条件フィルターで自動選定中...")
 
     # 直近営業日を探す
     for delta in range(7):
@@ -97,24 +105,53 @@ def get_tickers() -> list:
         logger.warning(f"銘柄自動選定エラー: {e}")
 
     if all_data:
-        # 売買代金（Va）でソートして上位TOP_N_TICKERS銘柄を選定
+        # 条件フィルターで成長・テーマ株を選定
         records = []
         for d in all_data:
             code = str(d.get("Code", ""))
-            if len(code) == 5 and code.endswith("0"):
-                try:
-                    va = float(d.get("Va", 0) or d.get("TurnoverValue", 0) or 0)
-                    vo = float(d.get("Vo", 0) or d.get("AdjVo", 0) or 0)
-                    if vo > 0:
-                        records.append({"code": code, "va": va})
-                except:
-                    pass
+            if not (len(code) == 5 and code.endswith("0")):
+                continue
+            try:
+                # 株価フィルター（調整済み終値）
+                price = float(d.get("AdjC") or d.get("C") or 0)
+                if price < MIN_PRICE:
+                    continue
+
+                # 売買代金フィルター
+                va = float(d.get("Va") or d.get("TurnoverValue") or 0)
+                if va < MIN_TURNOVER:
+                    continue
+
+                # 出来高フィルター（最低限の流動性）
+                vo = float(d.get("Vo") or d.get("AdjVo") or 0)
+                if vo <= 0:
+                    continue
+
+                records.append({"code": code, "va": va})
+            except:
+                pass
 
         if records:
+            # 売買代金でソートして上位MAX_TICKERS件
             records.sort(key=lambda x: x["va"], reverse=True)
-            top_codes  = [r["code"] for r in records[:TOP_N_TICKERS]]
-            tickers    = sorted([f"{c[:4]}.T" for c in top_codes])
-            logger.success(f"売買代金上位{len(tickers)}銘柄を選定（基準日: {date_str}）")
+
+            # ベース銘柄（stock_names.json）を必ず含める
+            base_tickers = set()
+            if STOCK_NAMES_PATH.exists():
+                with open(STOCK_NAMES_PATH, encoding="utf-8") as f:
+                    names = json.load(f)
+                base_tickers = {f"{k}0" for k in names.keys()}
+
+            # 条件を満たす銘柄 + ベース銘柄を合算
+            filtered_codes = [r["code"] for r in records]
+            combined = list(dict.fromkeys(
+                [c for c in filtered_codes if c in base_tickers] +  # ベース優先
+                filtered_codes  # 残りを売買代金順に追加
+            ))[:MAX_TICKERS]
+
+            tickers = sorted([f"{c[:4]}.T" for c in combined])
+            logger.success(f"条件フィルター選定: {len(tickers)}銘柄（基準日: {date_str}）")
+            logger.info(f"  株価≥{MIN_PRICE}円 × 売買代金≥{MIN_TURNOVER/1e8:.0f}億円 × 流動性あり")
             return tickers
 
     # フォールバック: stock_names.json
